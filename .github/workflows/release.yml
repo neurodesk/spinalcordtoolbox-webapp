@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    branches: [ staging ]
   workflow_dispatch:
 
 permissions:
@@ -10,16 +8,16 @@ permissions:
   actions: write
 
 concurrency:
-  group: release-staging
+  group: release-production
   cancel-in-progress: true
 
 jobs:
   release:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Compute next version from commit messages
@@ -44,11 +42,13 @@ jobs:
           NEXT="${BASE_MAJOR}.${BASE_MINOR}.$((BASE_PATCH + 1))"
 
           TAG="v${NEXT}"
-          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
-          echo "base=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "latest_tag=${LATEST_TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          {
+            echo "current=${CURRENT}"
+            echo "base=${BASE_VERSION}"
+            echo "latest_tag=${LATEST_TAG}"
+            echo "version=${NEXT}"
+            echo "tag=${TAG}"
+          } >> "$GITHUB_OUTPUT"
           echo "Current version: ${CURRENT}"
           echo "Latest tag: ${LATEST_TAG:-none}"
           echo "Base version: ${BASE_VERSION}"
@@ -84,8 +84,7 @@ jobs:
           fi
 
           git tag "${TAG}"
-          git push origin HEAD:staging
-          git push origin "${TAG}"
+          git push origin HEAD:main "${TAG}"
 
       - name: Create or update GitHub release
         env:
@@ -99,4 +98,3 @@ jobs:
             echo "Creating release ${TAG}."
             gh release create "$TAG" --generate-notes --title "$TAG" --latest
           fi
-

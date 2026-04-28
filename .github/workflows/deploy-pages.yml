@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["Release", "Staging updated"]
+    workflows: ["Release"]
     types: [completed]
   workflow_dispatch:
 
@@ -27,7 +27,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          fetch-depth: 0
+
+      - name: Check out latest release tag
+        run: |
+          git fetch --force --tags origin
+          TAG="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)"
+          if [[ -n "$TAG" ]]; then
+            echo "Building production from ${TAG}."
+            git checkout "$TAG"
+          else
+            echo "No release tag found; building production from main."
+            git checkout origin/main
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -88,23 +100,11 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
-      - name: Check if staging branch exists
-        id: check_staging
-        run: |
-          if git ls-remote --heads "https://github.com/${{ github.repository }}" staging | grep -q staging; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Staging branch does not exist yet — skipping staging build"
-          fi
-
       - uses: actions/checkout@v4
-        if: steps.check_staging.outputs.exists == 'true'
         with:
-          ref: staging
+          ref: main
 
       - name: Setup Node.js
-        if: steps.check_staging.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -112,11 +112,9 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install JS dependencies
-        if: steps.check_staging.outputs.exists == 'true'
         run: npm ci --ignore-scripts
 
       - name: Setup Rust toolchain
-        if: steps.check_staging.outputs.exists == 'true'
         run: |
           if ! command -v rustup >/dev/null; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -126,7 +124,6 @@ jobs:
           rustup target add wasm32-unknown-unknown
 
       - name: Cache Rust build artifacts
-        if: steps.check_staging.outputs.exists == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -138,7 +135,6 @@ jobs:
             ${{ runner.os }}-rust-preprocessing-
 
       - name: Install wasm-pack
-        if: steps.check_staging.outputs.exists == 'true'
         run: |
           if ! command -v wasm-pack >/dev/null; then
             curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
@@ -146,17 +142,14 @@ jobs:
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Download ONNX Runtime WASM files and build preprocessing
-        if: steps.check_staging.outputs.exists == 'true'
         run: |
           cd web
           bash setup.sh
 
       - name: Check JS syntax
-        if: steps.check_staging.outputs.exists == 'true'
         run: npm run lint
 
       - name: Upload staging artifact
-        if: steps.check_staging.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: staging-build
@@ -177,15 +170,12 @@ jobs:
           path: deploy-root
 
       - name: Download staging build
-        id: download_staging
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: staging-build
           path: deploy-root/staging
 
       - name: Inject staging banner
-        if: steps.download_staging.outcome == 'success'
         run: |
           sed -i 's|<body>|<body><div style="background:#f59e0b;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;z-index:9999;position:relative;">⚠ STAGING — This is a preview version. <a href="../" style="color:#000;text-decoration:underline;">Go to production</a></div>|' deploy-root/staging/index.html
 

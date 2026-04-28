@@ -105,6 +105,18 @@ npm run lint
 
 This parses all JS files under `web/` using [acorn](https://github.com/acornjs/acorn) and reports any syntax errors with file, line, and column.
 
+## Deployment
+
+GitHub Pages publishes two builds:
+
+- `/staging/` is rebuilt automatically from `main` on every push.
+- The live root app is built from the latest `vX.Y.Z` release tag.
+
+To promote the currently staged `main` build to live, run the manual **Release**
+workflow in GitHub Actions. It bumps `web/js/app/config.js`, tags the release,
+creates or updates the GitHub release, and then the Pages workflow deploys that
+tag to the live root while continuing to publish `main` at `/staging/`.
+
 ## Validation
 
 Validate SCT model metadata and compare supported browser outputs against SCT stable behavior:
