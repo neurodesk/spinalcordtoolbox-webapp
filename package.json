@@ -1,9 +1,10 @@
 {
   "scripts": {
     "lint": "node scripts/check-syntax.mjs",
-    "test": "npm run lint && npm run test:processing && npm run test:batch:webapp",
+    "test": "npm run lint && npm run test:processing && npm run test:batch:webapp && npm run test:server",
     "test:processing": "node scripts/test_sct_processing.cjs",
-    "test:batch:webapp": "node scripts/test_batch_processing_cases.cjs"
+    "test:batch:webapp": "node scripts/test_batch_processing_cases.cjs",
+    "test:server": "bash scripts/test_run_server_restart.sh"
   },
   "dependencies": {
     "nifti-reader-js": "^0.8.0",

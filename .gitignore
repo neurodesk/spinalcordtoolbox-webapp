@@ -37,5 +37,8 @@ build/
 *.log
 .env*
 
+# Dev server runtime files
+web/.dev-server-*.pid
+
 node_modules
 test_data

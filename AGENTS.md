@@ -8,6 +8,7 @@
 ## Development
 
 - **Start dev server**: `cd web && bash run.sh` (serves on http://localhost:8080)
+- `web/run.sh` stops an existing SCT dev server on the requested port before starting a replacement; use an alternate port argument when another non-SCT process owns `8080`
 - **Setup**: `cd web && bash setup.sh` (downloads ONNX Runtime WASM files)
 
 ## Linting
@@ -32,7 +33,7 @@ Common issues it catches:
 ## Key Conventions
 
 - The inference worker uses `importScripts()` (no ES modules)
-- Config version is bumped automatically by the GitHub Actions release workflow via `sed` — do not bump manually
+- Config version is bumped automatically by the GitHub Actions release workflow via `sed` on every push to `main`; it increments the patch version — do not bump manually
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
 
