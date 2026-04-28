@@ -71,6 +71,10 @@ Minimum fixture case fields:
 The implementation may store this contract as inline test data or fixture
 metadata, but every fixture must be explicit and reviewable.
 
+Current implementation stores fixture policies in
+`scripts/batch-parity-fixtures.cjs` and reusable validation helpers in
+`scripts/batch-parity-lib.cjs`.
+
 ## NIfTI Comparison
 
 For `outputType: "nifti"`, comparison must validate:
@@ -94,6 +98,10 @@ A successful run reports:
 - fixture parity count
 - failed count of zero
 - incomplete count of zero
+
+Until a manifest task has browser-runnable assets and passed validation,
+manifest-readiness gaps may be reported as `incomplete` to preserve the
+regression signal without marking unsupported model assets as supported.
 
 A failing run reports each failing case with:
 - section

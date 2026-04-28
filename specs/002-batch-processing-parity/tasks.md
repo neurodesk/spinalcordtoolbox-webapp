@@ -17,10 +17,10 @@
 
 **Purpose**: Establish the shared validation helpers and fixture policy structure used by all stories.
 
-- [ ] T001 Create shared batch parity helper module skeleton in `scripts/batch-parity-lib.cjs`
-- [ ] T002 Create explicit fixture policy table skeleton in `scripts/batch-parity-fixtures.cjs`
-- [ ] T003 [P] Add exports/import wiring from `scripts/batch-parity-lib.cjs` into `scripts/test_batch_processing_cases.cjs`
-- [ ] T004 [P] Document the local implementation checklist in `specs/002-batch-processing-parity/quickstart.md`
+- [x] T001 Create shared batch parity helper module skeleton in `scripts/batch-parity-lib.cjs`
+- [x] T002 Create explicit fixture policy table skeleton in `scripts/batch-parity-fixtures.cjs`
+- [x] T003 [P] Add exports/import wiring from `scripts/batch-parity-lib.cjs` into `scripts/test_batch_processing_cases.cjs`
+- [x] T004 [P] Document the local implementation checklist in `specs/002-batch-processing-parity/quickstart.md`
 
 ---
 
@@ -30,12 +30,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Implement active command parsing for executable `sct_` lines in `scripts/batch-parity-lib.cjs`
-- [ ] T006 Implement Batch Step validation for unique source line, section, command, taskId, contrast, and artifactProducing fields in `scripts/batch-parity-lib.cjs`
-- [ ] T007 Implement Browser Equivalent validation states and reject unsupported/native-only classifications in `scripts/batch-parity-lib.cjs`
-- [ ] T008 Implement Parity Result object creation with non-patient failure categories in `scripts/batch-parity-lib.cjs`
-- [ ] T009 [P] Populate initial fixture case policies for existing `test_data/batch_*` directories in `scripts/batch-parity-fixtures.cjs`
-- [ ] T010 Add privacy-safe diagnostic string helpers in `scripts/batch-parity-lib.cjs`
+- [x] T005 Implement active command parsing for executable `sct_` lines in `scripts/batch-parity-lib.cjs`
+- [x] T006 Implement Batch Step validation for unique source line, section, command, taskId, contrast, and artifactProducing fields in `scripts/batch-parity-lib.cjs`
+- [x] T007 Implement Browser Equivalent validation states and reject unsupported/native-only classifications in `scripts/batch-parity-lib.cjs`
+- [x] T008 Implement Parity Result object creation with non-patient failure categories in `scripts/batch-parity-lib.cjs`
+- [x] T009 [P] Populate initial fixture case policies for existing `test_data/batch_*` directories in `scripts/batch-parity-fixtures.cjs`
+- [x] T010 Add privacy-safe diagnostic string helpers in `scripts/batch-parity-lib.cjs`
 
 **Checkpoint**: Foundation ready; user story implementation can begin.
 
@@ -49,18 +49,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [US1] Add stale active-command mapping test cases in `scripts/test_batch_processing_cases.cjs`
-- [ ] T012 [US1] Add unsupported/native-only classification failure test cases in `scripts/test_batch_processing_cases.cjs`
-- [ ] T013 [US1] Add browser task readiness failure test cases for unsupported or unvalidated manifest tasks in `scripts/test_batch_processing_cases.cjs`
+- [x] T011 [US1] Add stale active-command mapping test cases in `scripts/test_batch_processing_cases.cjs`
+- [x] T012 [US1] Add unsupported/native-only classification failure test cases in `scripts/test_batch_processing_cases.cjs`
+- [x] T013 [US1] Add browser task readiness failure test cases for unsupported or unvalidated manifest tasks in `scripts/test_batch_processing_cases.cjs`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Replace static RAW_CASES-only coverage with parser-backed active command verification in `scripts/test_batch_processing_cases.cjs`
-- [ ] T015 [US1] Move batch step classification into reusable Browser Equivalent mapping functions in `scripts/batch-parity-lib.cjs`
-- [ ] T016 [US1] Enforce exactly one browser equivalent for each active Batch Step in `scripts/test_batch_processing_cases.cjs`
-- [ ] T017 [US1] Enforce browser task readiness against `web/models/manifest.json` in `scripts/test_batch_processing_cases.cjs`
-- [ ] T018 [US1] Enforce setup/install/QC/report-only coverage through app capability or status checks in `scripts/test_batch_processing_cases.cjs`
-- [ ] T019 [US1] Run `npm run test:batch:webapp` and resolve US1 failures in `scripts/test_batch_processing_cases.cjs`
+- [x] T014 [US1] Replace static RAW_CASES-only coverage with parser-backed active command verification in `scripts/test_batch_processing_cases.cjs`
+- [x] T015 [US1] Move batch step classification into reusable Browser Equivalent mapping functions in `scripts/batch-parity-lib.cjs`
+- [x] T016 [US1] Enforce exactly one browser equivalent for each active Batch Step in `scripts/test_batch_processing_cases.cjs`
+- [x] T017 [US1] Enforce browser task readiness against `web/models/manifest.json` in `scripts/test_batch_processing_cases.cjs`
+- [x] T018 [US1] Enforce setup/install/QC/report-only coverage through app capability or status checks in `scripts/test_batch_processing_cases.cjs`
+- [x] T019 [US1] Run `npm run test:batch:webapp` and resolve US1 failures in `scripts/test_batch_processing_cases.cjs`
 
 **Checkpoint**: User Story 1 is independently functional and testable as the MVP.
 
@@ -74,20 +74,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [US2] Add fixture policy validation tests for missing input, missing output, and missing tolerance policy in `scripts/test_batch_processing_cases.cjs`
-- [ ] T021 [US2] Add NIfTI metadata mismatch tests for dimensions, spacing, datatype, and output name in `scripts/test_batch_processing_cases.cjs`
-- [ ] T022 [US2] Add NIfTI data mismatch tests for exact and numeric tolerance policies in `scripts/test_batch_processing_cases.cjs`
+- [x] T020 [US2] Add fixture policy validation tests for missing input, missing output, and missing tolerance policy in `scripts/test_batch_processing_cases.cjs`
+- [x] T021 [US2] Add NIfTI metadata mismatch tests for dimensions, spacing, datatype, and output name in `scripts/test_batch_processing_cases.cjs`
+- [x] T022 [US2] Add NIfTI data mismatch tests for exact and numeric tolerance policies in `scripts/test_batch_processing_cases.cjs`
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement fixture discovery and artifact-producing step requirement checks in `scripts/batch-parity-lib.cjs`
-- [ ] T024 [US2] Implement fixture-specific tolerance policy validation in `scripts/batch-parity-lib.cjs`
-- [ ] T025 [US2] Implement NIfTI `.nii.gz` loading with `nifti-reader-js` in `scripts/batch-parity-lib.cjs`
-- [ ] T026 [US2] Implement browser-equivalent output generation from fixture inputs in `scripts/batch-parity-lib.cjs`
-- [ ] T027 [US2] Implement NIfTI metadata comparison for dimensions, spacing, affine/orientation-relevant fields, datatype, label semantics, and output naming in `scripts/batch-parity-lib.cjs`
-- [ ] T028 [US2] Implement NIfTI voxel comparison with exact, absolute tolerance, relative tolerance, and maximum difference summaries in `scripts/batch-parity-lib.cjs`
-- [ ] T029 [US2] Wire fixture parity checks into `scripts/test_batch_processing_cases.cjs`
-- [ ] T030 [US2] Run `npm run test:batch:webapp` and resolve US2 failures in `scripts/test_batch_processing_cases.cjs`
+- [x] T023 [US2] Implement fixture discovery and artifact-producing step requirement checks in `scripts/batch-parity-lib.cjs`
+- [x] T024 [US2] Implement fixture-specific tolerance policy validation in `scripts/batch-parity-lib.cjs`
+- [x] T025 [US2] Implement NIfTI `.nii.gz` loading with `nifti-reader-js` in `scripts/batch-parity-lib.cjs`
+- [x] T026 [US2] Implement browser-equivalent output generation from fixture inputs in `scripts/batch-parity-lib.cjs`
+- [x] T027 [US2] Implement NIfTI metadata comparison for dimensions, spacing, affine/orientation-relevant fields, datatype, label semantics, and output naming in `scripts/batch-parity-lib.cjs`
+- [x] T028 [US2] Implement NIfTI voxel comparison with exact, absolute tolerance, relative tolerance, and maximum difference summaries in `scripts/batch-parity-lib.cjs`
+- [x] T029 [US2] Wire fixture parity checks into `scripts/test_batch_processing_cases.cjs`
+- [x] T030 [US2] Run `npm run test:batch:webapp` and resolve US2 failures in `scripts/test_batch_processing_cases.cjs`
 
 **Checkpoint**: User Stories 1 and 2 both pass independently through the existing batch test entry point.
 
@@ -101,16 +101,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T031 [US3] Add aggregate success summary assertion for active command count, coverage count, fixture parity count, failed count, and incomplete count in `scripts/test_batch_processing_cases.cjs`
-- [ ] T032 [US3] Add multi-failure diagnostic tests for unmatched command, missing fixture, and output mismatch in `scripts/test_batch_processing_cases.cjs`
-- [ ] T033 [US3] Add privacy guard tests ensuring diagnostics omit voxel arrays and image contents in `scripts/test_batch_processing_cases.cjs`
+- [x] T031 [US3] Add aggregate success summary assertion for active command count, coverage count, fixture parity count, failed count, and incomplete count in `scripts/test_batch_processing_cases.cjs`
+- [x] T032 [US3] Add multi-failure diagnostic tests for unmatched command, missing fixture, and output mismatch in `scripts/test_batch_processing_cases.cjs`
+- [x] T033 [US3] Add privacy guard tests ensuring diagnostics omit voxel arrays and image contents in `scripts/test_batch_processing_cases.cjs`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Implement aggregate validation summary generation in `scripts/batch-parity-lib.cjs`
-- [ ] T035 [US3] Implement multi-failure collection before assertion failure in `scripts/test_batch_processing_cases.cjs`
-- [ ] T036 [US3] Replace ad hoc console output with privacy-safe summary reporting in `scripts/test_batch_processing_cases.cjs`
-- [ ] T037 [US3] Run `npm run test:batch:webapp` with temporary local negative cases and keep only production-safe assertions in `scripts/test_batch_processing_cases.cjs`
+- [x] T034 [US3] Implement aggregate validation summary generation in `scripts/batch-parity-lib.cjs`
+- [x] T035 [US3] Implement multi-failure collection before assertion failure in `scripts/test_batch_processing_cases.cjs`
+- [x] T036 [US3] Replace ad hoc console output with privacy-safe summary reporting in `scripts/test_batch_processing_cases.cjs`
+- [x] T037 [US3] Run `npm run test:batch:webapp` with temporary local negative cases and keep only production-safe assertions in `scripts/test_batch_processing_cases.cjs`
 
 **Checkpoint**: All user stories are independently functional through the batch validation entry point.
 
@@ -120,13 +120,13 @@
 
 **Purpose**: Final validation, documentation consistency, and quality-gate checks across all stories.
 
-- [ ] T038 [P] Update implementation notes and expected diagnostics in `specs/002-batch-processing-parity/quickstart.md`
-- [ ] T039 [P] Review `specs/002-batch-processing-parity/contracts/batch-parity-contract.md` against final helper names and fixture policy fields
-- [ ] T040 [P] Run `npm run test:processing` and resolve failures in `web/js/modules/sct-processing.js` or `scripts/test_sct_processing.cjs`
-- [ ] T041 Run `npm run test:batch:webapp` and resolve failures in `scripts/test_batch_processing_cases.cjs`
-- [ ] T042 Run `npm run lint` and resolve JavaScript syntax issues in `web/**/*.js`
-- [ ] T043 Run `npm test` and resolve full gate failures in `scripts/test_batch_processing_cases.cjs`, `scripts/test_sct_processing.cjs`, or `web/**/*.js`
-- [ ] T044 Verify git diff contains no patient data, voxel dumps, screenshots, or generated binary fixture churn in `test_data/`
+- [x] T038 [P] Update implementation notes and expected diagnostics in `specs/002-batch-processing-parity/quickstart.md`
+- [x] T039 [P] Review `specs/002-batch-processing-parity/contracts/batch-parity-contract.md` against final helper names and fixture policy fields
+- [x] T040 [P] Run `npm run test:processing` and resolve failures in `web/js/modules/sct-processing.js` or `scripts/test_sct_processing.cjs`
+- [x] T041 Run `npm run test:batch:webapp` and resolve failures in `scripts/test_batch_processing_cases.cjs`
+- [x] T042 Run `npm run lint` and resolve JavaScript syntax issues in `web/**/*.js`
+- [x] T043 Run `npm test` and resolve full gate failures in `scripts/test_batch_processing_cases.cjs`, `scripts/test_sct_processing.cjs`, or `web/**/*.js`
+- [x] T044 Verify git diff contains no patient data, voxel dumps, screenshots, or generated binary fixture churn in `test_data/`
 
 ---
 
