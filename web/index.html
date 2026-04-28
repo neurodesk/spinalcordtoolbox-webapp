@@ -93,6 +93,13 @@
             <label class="param-label" for="minSizeInput">Min Component Size <span class="info-icon">i<span class="info-tooltip">Connected components with fewer voxels than this are removed as noise.</span></span></label>
             <input type="number" id="minSizeInput" value="10" min="1" max="1000" step="1">
           </div>
+          <div class="param-group">
+            <label class="param-label" style="cursor: pointer;">
+              <input type="checkbox" id="ttaToggle" style="margin-right: 6px;">
+              Test-Time Augmentation
+              <span class="info-icon">i<span class="info-tooltip">Average predictions over 8 axis-flipped versions of the volume. Improves quality slightly but multiplies inference time by 8x.</span></span>
+            </label>
+          </div>
           <div class="step-buttons">
             <button class="btn btn-primary" id="runSegmentation" disabled>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>

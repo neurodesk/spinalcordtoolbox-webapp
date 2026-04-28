@@ -1,18 +1,27 @@
 #!/usr/bin/env node
 'use strict';
 
+/**
+ * Reference-output generator for the batch-parity fixtures. Drives the SCT
+ * inference pipeline (shared with the browser worker via web/js/inference-pipeline.js)
+ * on each fixture's input and writes the resulting browser_output.nii.gz.
+ *
+ * Single source of truth: this script uses the same pipeline module as
+ * web/js/inference-worker.js. Patch size + threshold come from the per-task
+ * model manifest at web/models/manifest.json so the two paths can never drift.
+ */
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const ort = require('onnxruntime-node');
 const fixtures = require('./batch-parity-fixtures.cjs');
 const { loadNifti, compareNiftiOutputs } = require('./batch-parity-lib.cjs');
+const pipeline = require(path.resolve(__dirname, '../web/js/inference-pipeline.js'));
 
 const ROOT = path.resolve(__dirname, '..');
-const PATCH = [64, 64, 64];
-const THRESHOLD = Number(process.env.BROWSER_THRESHOLD || 0.1);
-const MIN_COMPONENT_SIZE = Number(process.env.BROWSER_MIN_COMPONENT_SIZE || 10);
-const OPTIMIZE_THRESHOLD = process.env.BROWSER_OPTIMIZE_THRESHOLD === '1';
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, 'web/models/manifest.json'), 'utf8'));
+const THRESHOLD_OVERRIDE = process.env.BROWSER_THRESHOLD ? Number(process.env.BROWSER_THRESHOLD) : null;
+const MIN_COMPONENT_SIZE_OVERRIDE = process.env.BROWSER_MIN_COMPONENT_SIZE ? Number(process.env.BROWSER_MIN_COMPONENT_SIZE) : null;
 
 function readNiftiRaw(filePath) {
   const compressed = fs.readFileSync(filePath);
@@ -56,210 +65,77 @@ function writeUint8NiftiGz(outPath, header, dims, labels) {
   fs.writeFileSync(outPath, zlib.gzipSync(out));
 }
 
-function zScore(data) {
-  let sum = 0;
-  for (const value of data) sum += value;
-  const mean = sum / data.length;
-  let sumSq = 0;
-  for (const value of data) {
-    const diff = value - mean;
-    sumSq += diff * diff;
-  }
-  const std = Math.sqrt(sumSq / data.length) || 1;
-  const out = new Float32Array(data.length);
-  for (let i = 0; i < data.length; i++) out[i] = (data[i] - mean) / std;
-  return out;
+/**
+ * Look up the model asset (patchSize, defaults) used for a given fixture.
+ * Mirrors the manifest the browser worker reads.
+ */
+function resolveTaskAsset(fixtureId) {
+  const taskId = fixtureId.includes('graymatter') ? 'graymatter' : 'spinalcord';
+  const task = MANIFEST.tasks.find(t => t.id === taskId);
+  if (!task) throw new Error(`No task in manifest matching fixture id ${fixtureId}`);
+  const asset = task.modelAssets[0];
+  if (!asset) throw new Error(`No model asset for task ${taskId}`);
+  return { taskId, asset };
 }
 
-function paddedDims(dims) {
-  return dims.map((dim, i) => Math.ceil(dim / PATCH[i]) * PATCH[i]);
-}
-
-function padVolume(data, dims, outDims) {
-  const out = new Float32Array(outDims[0] * outDims[1] * outDims[2]);
-  for (let z = 0; z < dims[2]; z++) {
-    for (let y = 0; y < dims[1]; y++) {
-      const src = z * dims[0] * dims[1] + y * dims[0];
-      const dst = z * outDims[0] * outDims[1] + y * outDims[0];
-      out.set(data.subarray(src, src + dims[0]), dst);
-    }
-  }
-  return out;
-}
-
-function cropLabels(data, dims, outDims) {
-  const out = new Uint8Array(outDims[0] * outDims[1] * outDims[2]);
-  for (let z = 0; z < outDims[2]; z++) {
-    for (let y = 0; y < outDims[1]; y++) {
-      const src = z * dims[0] * dims[1] + y * dims[0];
-      const dst = z * outDims[0] * outDims[1] + y * outDims[0];
-      out.set(data.subarray(src, src + outDims[0]), dst);
-    }
-  }
-  return out;
-}
-
-function extractPatch(data, dims, x0, y0, z0) {
-  const out = new Float32Array(PATCH[0] * PATCH[1] * PATCH[2]);
-  for (let z = 0; z < PATCH[2]; z++) {
-    for (let y = 0; y < PATCH[1]; y++) {
-      const src = (z0 + z) * dims[0] * dims[1] + (y0 + y) * dims[0] + x0;
-      const dst = z * PATCH[0] * PATCH[1] + y * PATCH[0];
-      out.set(data.subarray(src, src + PATCH[0]), dst);
-    }
-  }
-  return out;
-}
-
-function writePatch(mask, dims, logits, x0, y0, z0, threshold) {
-  for (let z = 0; z < PATCH[2]; z++) {
-    for (let y = 0; y < PATCH[1]; y++) {
-      const base = z * PATCH[0] * PATCH[1] + y * PATCH[0];
-      const dst = (z0 + z) * dims[0] * dims[1] + (y0 + y) * dims[0] + x0;
-      for (let x = 0; x < PATCH[0]; x++) {
-        const prob = 1 / (1 + Math.exp(-logits[base + x]));
-        if (prob >= threshold) mask[dst + x] = 1;
-      }
-    }
-  }
-}
-
-function writeProbPatch(probMap, dims, logits, x0, y0, z0) {
-  for (let z = 0; z < PATCH[2]; z++) {
-    for (let y = 0; y < PATCH[1]; y++) {
-      const base = z * PATCH[0] * PATCH[1] + y * PATCH[0];
-      const dst = (z0 + z) * dims[0] * dims[1] + (y0 + y) * dims[0] + x0;
-      for (let x = 0; x < PATCH[0]; x++) {
-        probMap[dst + x] = 1 / (1 + Math.exp(-logits[base + x]));
-      }
-    }
-  }
-}
-
-function removeSmallComponents(mask, dims, minSize) {
-  if (minSize <= 1) return mask;
-  const labels = new Int32Array(mask.length);
-  const sizes = [0];
-  let label = 0;
-  const queue = [];
-  const [nx, ny, nz] = dims;
-  for (let i = 0; i < mask.length; i++) {
-    if (!mask[i] || labels[i]) continue;
-    label++;
-    let size = 0;
-    labels[i] = label;
-    queue.push(i);
-    while (queue.length) {
-      const idx = queue.pop();
-      size++;
-      const x = idx % nx;
-      const y = Math.floor(idx / nx) % ny;
-      const z = Math.floor(idx / (nx * ny));
-      const ns = [];
-      if (x > 0) ns.push(idx - 1);
-      if (x + 1 < nx) ns.push(idx + 1);
-      if (y > 0) ns.push(idx - nx);
-      if (y + 1 < ny) ns.push(idx + nx);
-      if (z > 0) ns.push(idx - nx * ny);
-      if (z + 1 < nz) ns.push(idx + nx * ny);
-      for (const ni of ns) {
-        if (mask[ni] && !labels[ni]) {
-          labels[ni] = label;
-          queue.push(ni);
-        }
-      }
-    }
-    sizes[label] = size;
-  }
-  const out = new Uint8Array(mask.length);
-  for (let i = 0; i < mask.length; i++) {
-    if (labels[i] && sizes[labels[i]] >= minSize) out[i] = 1;
-  }
-  return out;
-}
-
-function thresholdMask(probMap, threshold) {
-  const mask = new Uint8Array(probMap.length);
-  for (let i = 0; i < probMap.length; i++) {
-    if (probMap[i] >= threshold) mask[i] = 1;
-  }
-  return mask;
-}
-
-function diceAgainstExpected(mask, dims, expectedData, expectedDims) {
-  const cropped = cropLabels(removeSmallComponents(mask, dims, MIN_COMPONENT_SIZE), dims, expectedDims);
+function diceVsExpected(producedLabels, expectedData) {
   let expectedNz = 0, producedNz = 0, intersection = 0;
   for (let i = 0; i < expectedData.length; i++) {
     const e = expectedData[i] > 0;
-    const p = cropped[i] > 0;
+    const p = producedLabels[i] > 0;
     if (e) expectedNz++;
     if (p) producedNz++;
     if (e && p) intersection++;
   }
   const dice = expectedNz + producedNz ? (2 * intersection) / (expectedNz + producedNz) : 1;
-  return { dice, expectedNz, producedNz, cropped };
-}
-
-function findBestThreshold(probMap, dims, expectedData, expectedDims) {
-  const candidates = [];
-  for (let i = 0; i <= 100; i++) candidates.push(i / 100);
-  for (const value of [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.075, 0.125, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5]) {
-    candidates.push(value);
-  }
-  let best = { threshold: THRESHOLD, dice: -1, cropped: null, expectedNz: 0, producedNz: 0 };
-  for (const threshold of [...new Set(candidates)].sort((a, b) => a - b)) {
-    const scored = diceAgainstExpected(thresholdMask(probMap, threshold), dims, expectedData, expectedDims);
-    if (scored.dice > best.dice) best = { threshold, ...scored };
-  }
-  return best;
+  return { expectedNz, producedNz, intersection, dice };
 }
 
 async function runCase(fixture) {
   const inputPath = path.join(ROOT, fixture.inputPath);
   const outPath = path.join(path.dirname(inputPath), 'browser_output.nii.gz');
-  const modelName = fixture.id.includes('graymatter') ? 'sct-graymatter.onnx' : 'sct-spinalcord.onnx';
-  const modelPath = path.join(ROOT, 'web/models', modelName);
+  const { taskId, asset } = resolveTaskAsset(fixture.id);
+  const modelPath = path.join(ROOT, 'web/models', asset.filename);
+
   const { header, dims, data } = readNiftiRaw(inputPath);
   const session = await ort.InferenceSession.create(modelPath, { executionProviders: ['cpu'] });
-  const pDims = paddedDims(dims);
-  const volume = padVolume(zScore(data), dims, pDims);
-  const mask = new Uint8Array(volume.length);
-  const probMap = OPTIMIZE_THRESHOLD ? new Float32Array(volume.length) : null;
-  const total = (pDims[0] / 64) * (pDims[1] / 64) * (pDims[2] / 64);
-  let done = 0;
-  for (let z = 0; z < pDims[2]; z += 64) {
-    for (let y = 0; y < pDims[1]; y += 64) {
-      for (let x = 0; x < pDims[0]; x += 64) {
-        const patch = extractPatch(volume, pDims, x, y, z);
-        const tensor = new ort.Tensor('float32', patch, [1, 1, 64, 64, 64]);
-        const result = await session.run({ [session.inputNames[0]]: tensor });
-        if (probMap) writeProbPatch(probMap, pDims, result[session.outputNames[0]].data, x, y, z);
-        else writePatch(mask, pDims, result[session.outputNames[0]].data, x, y, z, THRESHOLD);
-        done++;
-        if (done % 20 === 0 || done === total) process.stderr.write(`${fixture.id}: ${done}/${total}\n`);
-      }
-    }
-  }
-  await session.release();
-  const expected = loadNifti(path.join(ROOT, fixture.expectedOutputPath));
-  const best = probMap
-    ? findBestThreshold(probMap, pDims, expected.data, dims)
-    : { threshold: THRESHOLD, ...diceAgainstExpected(mask, pDims, expected.data, dims) };
-  const cropped = best.cropped;
-  writeUint8NiftiGz(outPath, header, dims, cropped);
+  const inputName = session.inputNames[0];
+  const outputName = session.outputNames[0];
 
+  const patchSize = asset.patchSize;
+  const threshold = THRESHOLD_OVERRIDE != null ? THRESHOLD_OVERRIDE : (asset.inferenceDefaults?.probabilityThreshold ?? 0.5);
+  const minComponentSize = MIN_COMPONENT_SIZE_OVERRIDE != null ? MIN_COMPONENT_SIZE_OVERRIDE : (asset.inferenceDefaults?.minComponentSize ?? 10);
+
+  const runPatch = async (patch, patchDims) => {
+    const [p0, p1, p2] = patchDims;
+    const tensor = new ort.Tensor('float32', patch, [1, 1, p0, p1, p2]);
+    const result = await session.run({ [inputName]: tensor });
+    return result[outputName].data;
+  };
+
+  const result = await pipeline.runInferencePipeline(
+    { data, dims, patchSize },
+    runPatch,
+    {
+      threshold,
+      minComponentSize,
+      testTimeAugmentation: !!asset.inferenceDefaults?.testTimeAugmentation,
+      onLog: () => {},
+      onProgress: (stepsDone, totalSteps) => {
+        if (totalSteps && stepsDone % 5 === 0) process.stderr.write(`${fixture.id}: ${stepsDone}/${totalSteps}\n`);
+      },
+      onPatchStats: () => {}
+    }
+  );
+  await session.release();
+
+  writeUint8NiftiGz(outPath, header, dims, result.labels);
+
+  const expected = loadNifti(path.join(ROOT, fixture.expectedOutputPath));
   const produced = loadNifti(outPath);
   const mismatches = compareNiftiOutputs(expected, produced, fixture.tolerancePolicy, 'browser_output.nii.gz', 'browser_output.nii.gz');
-  let expectedNz = 0, producedNz = 0, intersection = 0;
-  for (let i = 0; i < expected.data.length; i++) {
-    const e = expected.data[i] > 0;
-    const p = produced.data[i] > 0;
-    if (e) expectedNz++;
-    if (p) producedNz++;
-    if (e && p) intersection++;
-  }
-  const dice = expectedNz + producedNz ? (2 * intersection) / (expectedNz + producedNz) : 1;
-  return { id: fixture.id, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, threshold: best.threshold };
+  const { expectedNz, producedNz, dice } = diceVsExpected(produced.data, expected.data);
+  return { id: fixture.id, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, threshold, taskId };
 }
 
 (async () => {
@@ -278,7 +154,8 @@ async function runCase(fixture) {
       expectedNz: result.expectedNz,
       producedNz: result.producedNz,
       dice: Number(result.dice.toFixed(6)),
-      threshold: result.threshold
+      threshold: result.threshold,
+      taskId: result.taskId
     }));
   }
 })();

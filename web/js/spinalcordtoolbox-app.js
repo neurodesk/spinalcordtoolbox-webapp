@@ -781,7 +781,7 @@ class SpinalCordToolboxApp {
       },
       modelName: selectedAsset?.filename || Config.MODEL.name,
       patchSize: effectivePatchSize,
-      testTimeAugmentation: !!assetDefaults.testTimeAugmentation,
+      testTimeAugmentation: !!document.getElementById('ttaToggle')?.checked,
       modelBaseUrl
     });
   }
@@ -972,6 +972,9 @@ class SpinalCordToolboxApp {
 
     const minSizeInput = document.getElementById('minSizeInput');
     if (minSizeInput) minSizeInput.value = String(Config.INFERENCE_DEFAULTS.minComponentSize);
+
+    const ttaToggle = document.getElementById('ttaToggle');
+    if (ttaToggle) ttaToggle.checked = false;
 
     this.applyTaskInferenceDefaults();
   }
