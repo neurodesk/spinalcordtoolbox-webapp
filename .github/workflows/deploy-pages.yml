@@ -51,34 +51,7 @@ jobs:
       - name: Install JS dependencies
         run: npm ci --ignore-scripts
 
-      - name: Setup Rust toolchain
-        run: |
-          if ! command -v rustup >/dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-            source "$HOME/.cargo/env"
-          fi
-          rustup target add wasm32-unknown-unknown
-
-      - name: Cache Rust build artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust-preprocessing/target
-          key: ${{ runner.os }}-rust-preprocessing-${{ hashFiles('rust-preprocessing/Cargo.lock', 'rust-preprocessing/Cargo.toml', 'rust-preprocessing/build.sh', 'rust-preprocessing/src/**/*.rs') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-preprocessing-
-
-      - name: Install wasm-pack
-        run: |
-          if ! command -v wasm-pack >/dev/null; then
-            curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
-          fi
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
-      - name: Download ONNX Runtime WASM files and build preprocessing
+      - name: Download ONNX Runtime WASM files
         run: |
           cd web
           bash setup.sh
@@ -114,34 +87,7 @@ jobs:
       - name: Install JS dependencies
         run: npm ci --ignore-scripts
 
-      - name: Setup Rust toolchain
-        run: |
-          if ! command -v rustup >/dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-            source "$HOME/.cargo/env"
-          fi
-          rustup target add wasm32-unknown-unknown
-
-      - name: Cache Rust build artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            rust-preprocessing/target
-          key: ${{ runner.os }}-rust-preprocessing-${{ hashFiles('rust-preprocessing/Cargo.lock', 'rust-preprocessing/Cargo.toml', 'rust-preprocessing/build.sh', 'rust-preprocessing/src/**/*.rs') }}
-          restore-keys: |
-            ${{ runner.os }}-rust-preprocessing-
-
-      - name: Install wasm-pack
-        run: |
-          if ! command -v wasm-pack >/dev/null; then
-            curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
-          fi
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
-      - name: Download ONNX Runtime WASM files and build preprocessing
+      - name: Download ONNX Runtime WASM files
         run: |
           cd web
           bash setup.sh

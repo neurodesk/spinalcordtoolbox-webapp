@@ -7,20 +7,11 @@
  *   2. Inference (resample → normalize → crop → sliding window → threshold → CC → inverse)
  */
 
-/* global importScripts, ort, localforage, nifti, wasm_bindgen */
+/* global importScripts, ort, localforage, nifti */
 
 importScripts('../wasm/ort.webgpu.min.js');
 importScripts('https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js');
 importScripts('../nifti-js/index.js');
-
-// Preprocessing WASM (optional - loaded if available)
-let wasmPreprocessingAvailable = false;
-try {
-  importScripts('../preprocessing-wasm/preprocessing.js');
-  wasmPreprocessingAvailable = true;
-} catch (e) {
-  console.warn('Preprocessing WASM import failed:', e);
-}
 
 const FIXED_TARGET_SPACING = [0.3, 0.3, 0.3];
 const MAX_PROCESSING_VOXELS = 100 * 1024 * 1024;
@@ -38,8 +29,6 @@ let workerState = {
   rasData: null,
   rasDims: null,
   rasSpacing: null,
-  brainMask: null,
-  denoisedData: null,
   // Unmasked segmentation labels in RAS space (before brain mask / CC cleanup)
   segLabelsRAS: null,
   segMinComponentSize: 10,
@@ -57,8 +46,6 @@ function resetState() {
     rasData: null,
     rasDims: null,
     rasSpacing: null,
-    brainMask: null,
-    denoisedData: null,
     segLabelsRAS: null,
     segMinComponentSize: 10,
   };
@@ -1098,19 +1085,6 @@ async function fetchModel(url, modelName, progressBase, progressSpan) {
   return data.buffer;
 }
 
-// ==================== WASM Preprocessing ====================
-
-async function initWasmPreprocessing() {
-  if (!wasmPreprocessingAvailable) return false;
-  try {
-    await wasm_bindgen('../preprocessing-wasm/preprocessing_bg.wasm');
-    return true;
-  } catch (e) {
-    postLog('Warning: Could not initialize preprocessing WASM: ' + e.message);
-    return false;
-  }
-}
-
 // ==================== Utility ====================
 
 function getOptimalWasmThreads() {
@@ -1194,8 +1168,6 @@ function loadStateFromInput(inputData, { emitUpdates = false } = {}) {
   }
 
   // Clear downstream state
-  workerState.brainMask = null;
-  workerState.denoisedData = null;
   workerState.segLabelsRAS = null;
   workerState.segMinComponentSize = 10;
 
@@ -1256,10 +1228,7 @@ async function stepInference(params) {
   const [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2] = patchSize;
   const patchDims = [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2];
 
-  // Use denoised data if available, otherwise full RAS volume data
-  let currentData = workerState.denoisedData
-    ? new Float32Array(workerState.denoisedData)
-    : new Float32Array(workerState.rasData);
+  let currentData = new Float32Array(workerState.rasData);
   let currentDims = [...workerState.rasDims];
   let currentSpacing = [...workerState.rasSpacing];
 
@@ -1414,20 +1383,7 @@ async function stepInference(params) {
   workerState.segMinComponentSize = minComponentSize;
   emitSegmentationStateArtifact();
 
-  if (workerState.brainMask) {
-    let maskedOut = 0;
-    for (let i = 0; i < outputLabels.length; i++) {
-      if (outputLabels[i] && !workerState.brainMask[i]) {
-        outputLabels[i] = 0;
-        maskedOut++;
-      }
-    }
-    if (maskedOut > 0) {
-      postLog(`Brain mask removed ${maskedOut} segmentation voxels outside mask`);
-    }
-  }
-
-  // Remove small connected components AFTER brain mask
+  // Remove small connected components after inverse transform.
   postProgress(0.90, 'Removing small components...');
   postLog(`Removing components smaller than ${minComponentSize} voxels...`);
   const rasDims = workerState.rasDims;
@@ -1473,17 +1429,12 @@ self.onmessage = async (e) => {
 
         postLog(`Using WASM backend (${ort.env.wasm.numThreads} threads)`);
 
-        self._wasmReady = await initWasmPreprocessing();
-        if (self._wasmReady) {
-        postLog('Preprocessing WASM ready');
-        }
-
         localforage.config({
           name: 'SCTModelCache',
           storeName: 'models'
         });
 
-        self.postMessage({ type: 'initialized', wasmPreprocessingAvailable: self._wasmReady });
+        self.postMessage({ type: 'initialized' });
       } catch (error) {
         postError(`Initialization failed: ${error.message}`);
       }

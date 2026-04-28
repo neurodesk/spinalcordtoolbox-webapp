@@ -14,14 +14,14 @@ validate representative browser outputs against SCT stable behavior.
 
 ## Technical Context
 
-**Language/Version**: JavaScript ES modules for UI, `importScripts()` worker script, Rust 2021 WASM preprocessing, Python utility scripts for model preparation and validation  
-**Primary Dependencies**: ONNX Runtime Web, NiiVue, dcm2niix WASM, nifti-reader-js, localforage, wasm-bindgen, SCT stable model/task metadata, Python SCT tooling for asset discovery and reference validation  
+**Language/Version**: JavaScript ES modules for UI, `importScripts()` worker script, Python utility scripts for model preparation and validation  
+**Primary Dependencies**: ONNX Runtime Web, NiiVue, dcm2niix WASM, nifti-reader-js, localforage, SCT stable model/task metadata, Python SCT tooling for asset discovery and reference validation  
 **Storage**: Browser model cache/localforage for model assets only; `web/models/` for packaged browser-runnable assets; no patient-derived cache entries  
 **Testing**: `npm run lint`, model manifest validation, setup/download dry run, browser workflow verification, SCT reference comparison for representative data, telemetry payload inspection if telemetry is emitted  
-**Target Platform**: Modern desktop browser served from GitHub Pages, ONNX Runtime Web with WebGPU/WASM fallback, optional Rust WASM preprocessing  
+**Target Platform**: Modern desktop browser served from GitHub Pages, ONNX Runtime Web with WebGPU/WASM fallback  
 **Project Type**: Browser-based medical imaging segmentation app  
 **Performance Goals**: Main thread remains responsive during model loading and large-volume inference; memory growth is bounded by explicit model/task limits; unsupported large or incompatible tasks fail with recoverable messaging  
-**Constraints**: Confidential browser-local patient data, telemetry limited to non-patient usage statistics, DICOM/NIfTI fidelity, SCT label semantics, reference pipeline parity, `importScripts()` worker compatibility, optional WASM preprocessing, WebGPU/WASM fallback  
+**Constraints**: Confidential browser-local patient data, telemetry limited to non-patient usage statistics, DICOM/NIfTI fidelity, SCT label semantics, reference pipeline parity, `importScripts()` worker compatibility, WebGPU/WASM fallback  
 **Scale/Scope**: Inventory covers SCT stable `sct_deepseg` task families; implementation supports the default `spinalcord` task first and any additional tasks whose assets can be downloaded, converted, validated, and run in-browser within cache/performance limits
 
 ## Constitution Check
@@ -38,8 +38,8 @@ validate representative browser outputs against SCT stable behavior.
 - **Reference pipeline parity**: PASS. SCT stable behavior is the reference.
   Browser results must be compared against SCT stable output for representative
   data, or the task must be marked unsupported/unvalidated.
-- **Progressive runtime capability**: PASS. Optional Rust WASM preprocessing,
-  WebGPU, model cache, conversion artifacts, and alternate assets all have
+- **Progressive runtime capability**: PASS. WebGPU, model cache,
+  conversion artifacts, and alternate assets all have
   recoverable fallback or unsupported states.
 - **Browser performance and worker discipline**: PASS. Inference stays in the
   existing worker path, with explicit attention to memory, transferables, cache
@@ -86,11 +86,7 @@ web/
 │   └── sct-*.onnx
 ├── dcm2niix/
 ├── nifti-js/
-├── preprocessing-wasm/
 └── index.html
-
-rust-preprocessing/
-└── src/
 
 scripts/
 ├── download_sct_models.py

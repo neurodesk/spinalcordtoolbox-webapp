@@ -24,9 +24,7 @@ bash run.sh
 - **SCT stable task inventory** for spinal cord MRI segmentation workflows
 - **Manifest-driven model provenance** with supported, unvalidated, unsupported, and retired task states
 - **DICOM and NIfTI** input support
-- **Interactive pipeline**: each preprocessing step (N4, BET, denoising) can be run or skipped independently
-- **Preprocessing**: N4ITK bias field correction, brain extraction (SynthStrip or BET), non-local means denoising
-- **SynthStrip**: deep-learning skull-stripping that works without WASM (default)
+- **Interactive pipeline**: load input data, run SCT task inference, and inspect/download results
 - **Configurable**: overlap, probability threshold, component size filtering
 - **Smart auto-contrast**: percentile-based windowing for better default display
 - **Privacy**: patient image data stays confidential and browser-local; non-patient usage statistics may be collected as telemetry
@@ -43,27 +41,11 @@ The default SCT task is `spinalcord`, matching the stable `sct_deepseg spinalcor
 
 Supported states are recorded in `web/models/manifest.json`: `supported`, `unvalidated`, `unsupported`, and `retired`.
 
-## Rust Preprocessing (Optional)
-
-The N4ITK bias field correction, BET brain extraction (traditional), and NLM denoising run as Rust compiled to WASM. SynthStrip brain extraction uses ONNX Runtime and does not require WASM.
-
-```bash
-# Install wasm-pack
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-# Build
-cd rust-preprocessing
-bash build.sh
-```
-
-If not built, the app will skip N4/BET(traditional)/denoising preprocessing. SynthStrip brain extraction and inference will still work.
-
 ## Project Structure
 
 ```
 spinalcordtoolbox/
 ├── .github/workflows/     # CI/CD (release + GitHub Pages deploy)
-├── rust-preprocessing/    # Rust WASM crate (N4ITK + NLM + BET)
 ├── scripts/               # Model conversion, validation, and version scripts
 ├── web/
 │   ├── js/
@@ -73,7 +55,6 @@ spinalcordtoolbox/
 │   │   ├── spinalcordtoolbox-app.js    # Main app
 │   │   └── inference-worker.js   # Web Worker (3D inference pipeline)
 │   ├── models/            # SCT model manifest + browser-runnable assets
-│   ├── preprocessing-wasm/# Built WASM preprocessing output
 │   └── index.html
 └── README.md
 ```
@@ -82,17 +63,13 @@ spinalcordtoolbox/
 
 1. Parse NIfTI / convert DICOM
 2. Orient to RAS
-3. N4ITK bias field correction (WASM, optional — run or skip)
-4. Brain extraction — SynthStrip (ONNX, default) or BET (WASM) — optional, run or skip
-5. Non-local means denoising (WASM, optional — run or skip)
-6. Pad to 64-voxel multiples (nearest-neighbor zoom matching `scipy.ndimage.zoom`)
-7. Z-score normalize
-8. SCT task inference when a browser-runnable model asset is supported
-9. Threshold probabilities (default 0.1)
-10. Inverse transforms (resize back to original dimensions)
-11. Apply brain mask (if BET was used)
-12. Remove small connected components
-13. Inverse orient -> output NIfTI
+3. Pad to task patch-size multiples
+4. Z-score normalize
+5. SCT task inference when a browser-runnable model asset is supported
+6. Threshold probabilities
+7. Inverse transforms (resize back to original dimensions)
+8. Remove small connected components
+9. Inverse orient -> output NIfTI
 
 ## Linting
 
@@ -132,7 +109,6 @@ If you use SCT workflows, please cite Spinal Cord Toolbox and the relevant SCT t
 - **Spinal Cord Toolbox**: [spinalcordtoolbox.com](https://spinalcordtoolbox.com/stable/)
 - **dcm2niix**: Li X, Morgan PS, Ashburner J, Smith J, Rorden C. The first step for neuroimaging data analysis: DICOM to NIfTI conversion. J Neurosci Methods. 2016;264:47-56. [GitHub](https://github.com/rordenlab/dcm2niix)
 - **ONNX Runtime Web**: Microsoft. [onnxruntime.ai](https://onnxruntime.ai)
-- **SynthStrip**: Hoopes A, Mora JS, Dalca AV, Fischl B, Hoffmann M. SynthStrip: Skull-Stripping for Any Brain Image. NeuroImage. 2022;260:119474. doi:10.1016/j.neuroimage.2022.119474
 - **NiiVue**: NiiVue Contributors. [github.com/niivue/niivue](https://github.com/niivue/niivue)
 
 ## Privacy

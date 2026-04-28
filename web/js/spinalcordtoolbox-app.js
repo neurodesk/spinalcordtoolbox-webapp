@@ -74,8 +74,7 @@ class SpinalCordToolboxApp {
       onError: (msg) => this.onInferenceError(msg),
       onInitialized: () => this.onWorkerInitialized(),
       onStepComplete: (step) => this.onStepComplete(step),
-      onVolumeInfo: (info) => this.onVolumeInfo(info),
-      onBrainMaskOverlay: (file) => { this._brainMaskOverlayFile = file; }
+      onVolumeInfo: (info) => this.onVolumeInfo(info)
     });
 
     // Modals
@@ -309,16 +308,13 @@ class SpinalCordToolboxApp {
     const runBtn = document.getElementById('runSegmentation');
     if (details) {
       const contrasts = (task.inputContrasts || []).join(', ') || 'See SCT documentation';
-      const reason = task.supportStatus === 'supported'
-        ? 'Ready after a valid input is loaded.'
-        : (task.unsupportedReason || 'This task is not yet validated for browser execution.');
-      details.textContent = `${task.description} Input: ${contrasts}. Status: ${task.supportStatus}. ${reason}`;
+      details.textContent = `${task.description} Input: ${contrasts}.`;
       details.classList.toggle('task-supported', task.supportStatus === 'supported');
       details.classList.toggle('task-disabled', task.supportStatus !== 'supported');
     }
     if (runBtn) {
       runBtn.disabled = !isTaskRunnable(task);
-      runBtn.title = isTaskRunnable(task) ? 'Run SCT segmentation' : (task.unsupportedReason || 'Task is not supported yet');
+      runBtn.title = isTaskRunnable(task) ? 'Run SCT segmentation' : 'Task unavailable';
     }
   }
 
@@ -757,7 +753,7 @@ class SpinalCordToolboxApp {
     const effectivePatchSize = selectedAsset?.patchSize || selectedTask.patchSize || Config.MODEL.patchSize;
 
     if (!isTaskRunnable(selectedTask)) {
-      this.updateOutput(`SCT task "${selectedTask.displayName}" is ${selectedTask.supportStatus}: ${selectedTask.unsupportedReason || 'not validated for browser execution'}`);
+      this.updateOutput(`SCT task "${selectedTask.displayName}" is unavailable.`);
       this.updateTaskDetails();
       return;
     }

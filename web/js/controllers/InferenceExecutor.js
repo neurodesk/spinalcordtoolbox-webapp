@@ -17,15 +17,12 @@ export class InferenceExecutor {
     this.onInitialized = options.onInitialized || (() => {});
     this.onStepComplete = options.onStepComplete || (() => {});
     this.onVolumeInfo = options.onVolumeInfo || (() => {});
-    this.onBrainMaskOverlay = options.onBrainMaskOverlay || null;
 
     this.worker = null;
-    this.brainMaskOverlayFile = null;
     this.workerReady = false;
     this.workerInitializing = false;
     this.running = false;
     this.webgpuAvailable = false;
-    this.wasmAvailable = false;
     this.results = {};
     this.stageOrder = [];
     this.inputVolumeBuffer = null;
@@ -158,7 +155,6 @@ export class InferenceExecutor {
           this.workerReady = true;
           this.workerInitializing = false;
           this.webgpuAvailable = !!data.webgpuAvailable;
-          this.wasmAvailable = !!data.wasmPreprocessingAvailable;
           this.updateOutput('ONNX Runtime ready');
           this.onInitialized();
           break;
@@ -176,9 +172,6 @@ export class InferenceExecutor {
           break;
         case 'state-artifact':
           this._handleStateArtifact(data);
-          break;
-        case 'brain-mask-overlay':
-          this._handleBrainMaskOverlay(data);
           break;
         case 'state-restored':
           this._handleStateRestored();
@@ -226,14 +219,6 @@ export class InferenceExecutor {
       console.error('Error handling stage data:', err);
       this.updateOutput(`Error displaying ${data.stage}: ${err.message}`);
     });
-  }
-
-  _handleBrainMaskOverlay(data) {
-    const blob = new Blob([data.niftiData], { type: 'application/octet-stream' });
-    this.brainMaskOverlayFile = new File([blob], 'brain-mask.nii', { type: 'application/octet-stream' });
-    if (this.onBrainMaskOverlay) {
-      this.onBrainMaskOverlay(this.brainMaskOverlayFile);
-    }
   }
 
   _handleStepComplete(step) {
