@@ -38,3 +38,4 @@ build/
 .env*
 
 node_modules
+test_data

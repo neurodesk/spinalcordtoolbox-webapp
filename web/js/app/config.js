@@ -23,26 +23,11 @@ export const MODELS = [
   }
 ];
 
-export const SYNTHSTRIP_MODEL = {
-  name: 'synthstrip.onnx',
-  label: 'SynthStrip',
-  targetSpacing: [1.0, 1.0, 1.0]
-};
-
-export const SYNTHSTRIP_FAST_MODEL = {
-  name: 'synthstrip.onnx',
-  label: 'SynthStrip Fast',
-  targetSpacing: [2.0, 2.0, 2.0]
-};
-
 export const INFERENCE_DEFAULTS = {
   cropForegroundMargin: 20,
   overlap: 0,
   probabilityThreshold: 0.1,
-  minComponentSize: 10,
-  biasCorrection: true,
-  denoising: false,
-  fractionalIntensity: 0.5
+  minComponentSize: 10
 };
 
 export const VIEWER_CONFIG = {
@@ -61,10 +46,6 @@ export const PROGRESS_CONFIG = {
 
 export const STAGE_NAMES = {
   'input': 'Input',
-  'downsample': 'Downsample',
-  'bet': 'Brain Extraction',
-  'n4': 'Bias Correction',
-  'nlm': 'Denoising',
   'segmentation': 'SCT Segmentation'
 };
 
@@ -79,6 +60,6 @@ export const CACHE_CONFIG = {
   maxSizeMB: 500
 };
 
-export const PIPELINE_STEPS = ['load', 'downsample', 'n4', 'denoise', 'inference', 'bet'];
+export const PIPELINE_STEPS = ['load', 'inference', 'processing'];
 
-if (typeof self !== 'undefined') self.SpinalCordToolboxConfig = { VERSION, MODEL_BASE_URL, MODEL, MODELS, SYNTHSTRIP_MODEL, SYNTHSTRIP_FAST_MODEL, INFERENCE_DEFAULTS, VIEWER_CONFIG, PROGRESS_CONFIG, STAGE_NAMES, ONNX_CONFIG, CACHE_CONFIG, PIPELINE_STEPS };
+if (typeof self !== 'undefined') self.SpinalCordToolboxConfig = { VERSION, MODEL_BASE_URL, MODEL, MODELS, INFERENCE_DEFAULTS, VIEWER_CONFIG, PROGRESS_CONFIG, STAGE_NAMES, ONNX_CONFIG, CACHE_CONFIG, PIPELINE_STEPS };

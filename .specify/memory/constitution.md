@@ -1,9 +1,8 @@
 <!--
 Sync Impact Report
-Version change: 1.1.0 -> 2.0.0
+Version change: 2.0.0 -> 2.0.1
 Modified principles:
-- I. Browser-Local Privacy Boundary -> I. Confidential Patient Data and Usage Telemetry
-- Development Workflow and Quality Gates -> Development Workflow, Testing, and Quality Gates
+- Development Workflow, Testing, and Quality Gates (removed-feature testing clarified)
 Added sections:
 - None
 Removed sections:
@@ -14,8 +13,8 @@ Templates requiring updates:
 - ✅ .specify/templates/tasks-template.md
 - ✅ .specify/templates/checklist-template.md
 - ✅ .specify/templates/commands/*.md (not present)
-- ✅ README.md
-- ✅ AGENTS.md
+- ✅ README.md (reviewed; no update required)
+- ✅ AGENTS.md (reviewed; no update required)
 - ✅ .github/workflows/*.yml (reviewed; no update required)
 Follow-up TODOs:
 - None
@@ -158,8 +157,15 @@ research and again after Phase 1 design. Any violation MUST be recorded in
 Complexity Tracking with the rejected simpler alternative.
 
 Tasks MUST include concrete testing or validation work for every touched
-surface. JavaScript changes MUST run `npm run lint` before commit. Changes to
-Rust preprocessing MUST include a WASM build check or documented reason it was
+current or replacement surface. Testing MUST target supported behavior, data
+contracts, migration effects, and user workflows that remain after the change.
+When a feature, UI control, pipeline step, or code path is intentionally removed,
+teams MUST NOT add or retain tests whose only assertion is that the removed
+functionality is absent. Removal work SHOULD delete obsolete tests and validate
+any remaining supported workflow affected by the removal.
+
+JavaScript changes MUST run `npm run lint` before commit. Changes to Rust
+preprocessing MUST include a WASM build check or documented reason it was
 unavailable. Changes to inference, preprocessing, DICOM/NIfTI handling,
 orientation, spacing, labels, model assets, model configuration, or export
 behavior MUST include validation against representative imaging data, reference
@@ -185,4 +191,4 @@ confidentiality, telemetry field minimization, imaging fidelity, reference
 parity, runtime fallbacks, worker discipline, model asset stewardship, release
 constraints, and required testing or validation evidence before approval.
 
-**Version**: 2.0.0 | **Ratified**: 2026-04-27 | **Last Amended**: 2026-04-27
+**Version**: 2.0.1 | **Ratified**: 2026-04-27 | **Last Amended**: 2026-04-28

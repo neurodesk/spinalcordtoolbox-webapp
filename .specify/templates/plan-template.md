@@ -56,7 +56,9 @@
   preserve staging/main release, JavaScript lint, WASM build, setup, and deploy
   paths?
 - **Testing**: Does the plan define concrete tests or validation for every
-  touched surface, including telemetry payload inspection when telemetry is
+  touched current or replacement surface, delete obsolete tests for intentionally
+  removed functionality, and avoid absence-only tests for removed controls or
+  code paths? Does it include telemetry payload inspection when telemetry is
   added or changed?
 
 ## Project Structure

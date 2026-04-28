@@ -61,86 +61,11 @@
         </div>
       </section>
 
-      <!-- Optional: Downsample -->
-      <section class="sidebar-section step-section step-disabled" id="stepDownsampleSection">
-        <h2 class="section-title" onclick="toggleSection(this.parentElement)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 3l6 6M3 3v4.8M3 3h4.8"/></svg>
-          <span>Downsample (Optional)</span>
-          <span class="step-badge" id="stepDownsampleBadge"></span>
-        </h2>
-        <div class="section-content">
-          <p class="step-description" id="downsampleInfo">Loading volume info...</p>
-          <div class="param-group">
-            <label class="param-label" for="downsampleFactor">Downsample Factor <span class="info-icon">i<span class="info-tooltip">Reduce the volume resolution by this factor. 2x halves the resolution in each dimension (8x fewer voxels). Useful for large volumes to speed up processing.</span></span></label>
-            <select id="downsampleFactor">
-              <option value="2">2x</option>
-              <option value="3">3x</option>
-              <option value="4">4x</option>
-            </select>
-          </div>
-          <div class="step-buttons">
-            <button class="btn btn-primary btn-sm" id="runDownsampleBtn" disabled>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Run
-            </button>
-            <button class="btn btn-secondary btn-sm" id="skipDownsampleBtn" disabled>Skip</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Step 1: Bias Field Correction -->
-      <section class="sidebar-section step-section step-disabled" id="stepN4Section">
-        <h2 class="section-title" onclick="toggleSection(this.parentElement)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          <span>Step 1: Bias Field Correction (Optional)</span>
-          <span class="step-badge" id="stepN4Badge"></span>
-        </h2>
-        <div class="section-content">
-          <p class="step-description">N4ITK bias field correction. Recommended for raw MRI data.</p>
-          <div class="step-buttons">
-            <button class="btn btn-primary btn-sm" id="runN4Btn" disabled>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Run
-            </button>
-            <button class="btn btn-secondary btn-sm" id="skipN4Btn" disabled>Skip</button>
-            <button class="btn btn-secondary btn-sm hidden" id="abortN4Btn">Abort</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Step 2: Denoising -->
-      <section class="sidebar-section step-section step-disabled" id="stepDenoiseSection">
-        <h2 class="section-title" onclick="toggleSection(this.parentElement)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446A9 9 0 1 1 12 3z"/></svg>
-          <span>Step 2: Denoising (Optional)</span>
-          <span class="step-badge" id="stepDenoiseBadge"></span>
-        </h2>
-        <div class="section-content">
-          <p class="step-description">Denoise the volume to improve segmentation quality. <span class="info-icon">i<span class="info-tooltip">Bilateral is fast with good edge preservation. NLM variants are slower but may produce better results. Processing time depends on volume size.</span></span></p>
-          <div class="param-group">
-            <label class="param-label" for="denoiseMethodSelect">Method <span class="info-icon">i<span class="info-tooltip">Bilateral: fast edge-preserving filter (~10-20x faster than NLM). NLM Fast: non-local means with reduced search window. NLM: full non-local means (slowest, highest quality).</span></span></label>
-            <select id="denoiseMethodSelect">
-              <option value="bilateral">Bilateral (fast)</option>
-              <option value="nlm-fast">NLM Fast</option>
-              <option value="nlm">NLM</option>
-            </select>
-          </div>
-          <div class="step-buttons">
-            <button class="btn btn-primary btn-sm" id="runDenoiseBtn" disabled>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Run
-            </button>
-            <button class="btn btn-secondary btn-sm" id="skipDenoiseBtn" disabled>Skip</button>
-            <button class="btn btn-secondary btn-sm hidden" id="abortDenoiseBtn">Abort</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Step 3: SCT Segmentation -->
+      <!-- SCT Segmentation -->
       <section class="sidebar-section step-section step-disabled" id="stepInferenceSection">
         <h2 class="section-title" onclick="toggleSection(this.parentElement)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span>Step 3: SCT Segmentation</span>
+          <span>SCT Segmentation</span>
           <span class="step-badge" id="stepInferenceBadge"></span>
         </h2>
         <div class="section-content">
@@ -178,40 +103,33 @@
         </div>
       </section>
 
-      <!-- Step 4: Mask Refinement (optional post-segmentation masking) -->
-      <section class="sidebar-section step-section step-disabled" id="stepBETSection">
+      <!-- SCT Processing Utilities -->
+      <section class="sidebar-section step-section step-disabled" id="stepProcessingSection">
         <h2 class="section-title" onclick="toggleSection(this.parentElement)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>
-          <span>Step 4: Mask Refinement</span>
-          <span class="step-badge" id="stepBETBadge"></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+          <span>SCT Processing</span>
+          <span class="step-badge" id="stepProcessingBadge"></span>
         </h2>
         <div class="section-content">
-          <p class="step-description">Mask segmentation to brain region. Removes false positives outside the brain.</p>
+          <p class="step-description">Run browser-side SCT utility operations on synthetic validation fixtures or generated task metadata.</p>
           <div class="param-group">
-            <label class="param-label" for="betMethodSelect">Method <span class="info-icon">i<span class="info-tooltip">BET: traditional brain extraction (recommended, requires WASM). SynthStrip: deep learning skull-stripping (1mm). SynthStrip Fast: coarser resolution (2mm).</span></span></label>
-            <select id="betMethodSelect">
-              <option value="bet">BET (traditional)</option>
-              <option value="synthstrip" selected>SynthStrip</option>
-              <option value="synthstrip-fast">SynthStrip Fast</option>
+            <label class="param-label" for="processingOperationSelect">Operation</label>
+            <select id="processingOperationSelect">
+              <option value="centerline">Centerline + mask + crop</option>
+              <option value="morphometry">Morphometry CSV</option>
+              <option value="mt">MTR / MTsat maps</option>
+              <option value="dmri">dMRI split + DTI metrics</option>
+              <option value="registration">Registration / warp / motion correction</option>
+              <option value="metadata">Example data / model metadata / QC</option>
             </select>
           </div>
-          <div id="betFiGroup" class="param-group" style="display:none">
-            <label class="param-label" for="betFiInput">Fractional Intensity <span class="info-icon">i<span class="info-tooltip">BET fractional intensity threshold (0.0-1.0). Smaller values give larger brain outlines. Default: 0.5.</span></span></label>
-            <input type="number" id="betFiInput" value="0.5" min="0.0" max="1.0" step="0.05">
-          </div>
           <div class="step-buttons">
-            <button class="btn btn-primary btn-sm" id="runBETBtn" disabled>
+            <button class="btn btn-primary btn-sm" id="runProcessingBtn" disabled>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Run
             </button>
-            <button class="btn btn-secondary btn-sm" id="skipBETBtn" disabled>Skip</button>
-            <button class="btn btn-secondary btn-sm hidden" id="abortBETBtn">Abort</button>
           </div>
-          <div class="step-buttons hidden" id="applyBETGroup">
-            <button class="btn btn-secondary btn-sm" id="dilateBETBtn">Dilate</button>
-            <button class="btn btn-secondary btn-sm" id="erodeBETBtn">Erode</button>
-            <button class="btn btn-primary btn-sm" id="applyBETBtn">Apply mask to SCT segmentation</button>
-          </div>
+          <pre class="console-output" id="processingOutput" style="max-height: 140px;"></pre>
         </div>
       </section>
 
@@ -462,25 +380,6 @@
           <strong>dcm2niix</strong>
           <p>Li X, Morgan PS, Ashburner J, Smith J, Rorden C. The first step for neuroimaging data analysis: DICOM to NIfTI conversion. J Neurosci Methods. 2016;264:47-56.</p>
           <a href="https://github.com/rordenlab/dcm2niix" target="_blank" rel="noopener">https://github.com/rordenlab/dcm2niix</a>
-        </div>
-      </div>
-
-      <div class="citation-section">
-        <h4>Brain Extraction</h4>
-        <div class="citation-item">
-          <strong>QSM.rs (BET)</strong>
-          <p>Stewart A. QSM.rs: Quantitative Susceptibility Mapping in Rust. FSL-BET2 brain extraction algorithm.</p>
-          <a href="https://github.com/astewartau/QSM.rs" target="_blank" rel="noopener">https://github.com/astewartau/QSM.rs</a>
-        </div>
-        <div class="citation-item">
-          <strong>FSL BET</strong>
-          <p>Smith SM. Fast robust automated brain extraction. Human Brain Mapping. 2002;17(3):143-155.</p>
-          <a href="https://doi.org/10.1002/hbm.10062" target="_blank" rel="noopener">https://doi.org/10.1002/hbm.10062</a>
-        </div>
-        <div class="citation-item">
-          <strong>SynthStrip</strong>
-          <p>Hoopes A, Mora JS, Dalca AV, Fischl B, Hoffmann M. SynthStrip: Skull-Stripping for Any Brain Image. NeuroImage. 2022;260:119474.</p>
-          <a href="https://doi.org/10.1016/j.neuroimage.2022.119474" target="_blank" rel="noopener">https://doi.org/10.1016/j.neuroimage.2022.119474</a>
         </div>
       </div>
 

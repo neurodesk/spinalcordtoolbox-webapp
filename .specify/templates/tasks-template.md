@@ -9,10 +9,12 @@ description: "Task list template for feature implementation"
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
 **Tests**: The examples below include test tasks. Testing or documented
-validation is REQUIRED for every touched surface. JavaScript changes require
-`npm run lint`. Imaging, inference, preprocessing, DICOM/NIfTI, orientation,
-spacing, label, model-configuration, model asset, cache, export, telemetry, or
-release workflow changes require concrete validation tasks.
+validation is REQUIRED for every touched current or replacement surface. Do not
+add tasks or tests whose only assertion is that intentionally removed
+functionality is absent; delete obsolete tests instead. JavaScript changes
+require `npm run lint`. Imaging, inference, preprocessing, DICOM/NIfTI,
+orientation, spacing, label, model-configuration, model asset, cache, export,
+telemetry, or release workflow changes require concrete validation tasks.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -76,7 +78,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T007 Define reference-pipeline, representative-data, script-based, or manual validation method
 - [ ] T008 Confirm worker/WASM/ONNX Runtime Web compatibility, transferable buffer, memory, and abort constraints
 - [ ] T009 Configure or update recoverable error handling, UI status reporting, and console output
-- [ ] T010 Define required tests or documented validation for every touched surface
+- [ ] T010 Define required tests or documented validation for every touched current or replacement surface
 - [ ] T011 Confirm telemetry fields are non-patient usage statistics if telemetry is touched
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
@@ -195,7 +197,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests or validation tasks required by the constitution MUST be completed for every touched surface
+- Tests or validation tasks required by the constitution MUST be completed for every touched current or replacement surface
+- Obsolete tests for intentionally removed functionality MUST be deleted rather than replaced with absence-only checks
 - Data invariants before transforms
 - Model/config/cache alignment before UI selection changes
 - Worker message contracts before UI integration

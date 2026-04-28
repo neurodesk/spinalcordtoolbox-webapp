@@ -34,7 +34,7 @@
 - [ ] CHKXXX Optional preprocessing, WebGPU/WASM provider fallback, model cache, and asset failure paths are covered
 - [ ] CHKXXX Browser responsiveness, worker usage, transferables, abort behavior, memory, and WASM/ONNX compatibility are reviewed
 - [ ] CHKXXX Model filenames, source, modality, patch size, class count, and validation evidence match configuration
-- [ ] CHKXXX Required tests or documented validation are completed for every touched surface
+- [ ] CHKXXX Required tests or documented validation are completed for every touched current or replacement surface, without absence-only tests for intentionally removed functionality
 
 ## [Category 2]
 

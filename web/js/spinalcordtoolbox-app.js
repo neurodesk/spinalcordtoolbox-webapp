@@ -15,6 +15,7 @@ import * as Config from './app/config.js';
 import { generateNiivueColormap, getLabelName } from './app/labels.js';
 import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, isTaskRunnable } from './app/sct-tasks.js';
 import { computeAutoWindow } from './modules/ui/percentile.js';
+import './modules/sct-processing.js';
 
 class SpinalCordToolboxApp {
   constructor() {
@@ -146,60 +147,18 @@ class SpinalCordToolboxApp {
 
     this.setupDropZone();
 
-    // Step buttons
-    const runDownsample = document.getElementById('runDownsampleBtn');
-    if (runDownsample) runDownsample.addEventListener('click', () => this.runDownsample());
-
-    const skipDownsample = document.getElementById('skipDownsampleBtn');
-    if (skipDownsample) skipDownsample.addEventListener('click', () => this.skipDownsample());
-
-    const runN4 = document.getElementById('runN4Btn');
-    if (runN4) runN4.addEventListener('click', () => this.runN4());
-
-    const skipN4 = document.getElementById('skipN4Btn');
-    if (skipN4) skipN4.addEventListener('click', () => this.skipN4());
-
-    const runBET = document.getElementById('runBETBtn');
-    if (runBET) runBET.addEventListener('click', () => this.runBET());
-
-    const skipBET = document.getElementById('skipBETBtn');
-    if (skipBET) skipBET.addEventListener('click', () => this.skipBET());
-
-    const applyBET = document.getElementById('applyBETBtn');
-    if (applyBET) applyBET.addEventListener('click', () => this.applyBrainMask());
-
-    const dilateBET = document.getElementById('dilateBETBtn');
-    if (dilateBET) dilateBET.addEventListener('click', () => this.dilateBrainMask());
-
-    const erodeBET = document.getElementById('erodeBETBtn');
-    if (erodeBET) erodeBET.addEventListener('click', () => this.erodeBrainMask());
-
-    // BET method dropdown: toggle FI visibility
-    const betMethodSelect = document.getElementById('betMethodSelect');
-    if (betMethodSelect) {
-      betMethodSelect.addEventListener('change', () => {
-        const fiGroup = document.getElementById('betFiGroup');
-        if (fiGroup) {
-          fiGroup.style.display = betMethodSelect.value.startsWith('synthstrip') ? 'none' : '';
-        }
-      });
-    }
-
-    const runDenoise = document.getElementById('runDenoiseBtn');
-    if (runDenoise) runDenoise.addEventListener('click', () => this.runDenoise());
-
-    const skipDenoise = document.getElementById('skipDenoiseBtn');
-    if (skipDenoise) skipDenoise.addEventListener('click', () => this.skipDenoise());
-
     const runBtn = document.getElementById('runSegmentation');
     if (runBtn) runBtn.addEventListener('click', () => this.runSegmentation());
+
+    const runProcessingBtn = document.getElementById('runProcessingBtn');
+    if (runProcessingBtn) runProcessingBtn.addEventListener('click', () => this.runProcessingOperation());
 
     const modelSelect = document.getElementById('modelSelect');
     if (modelSelect) {
       modelSelect.addEventListener('change', () => this.onTaskSelectionChanged(modelSelect.value));
     }
 
-    ['abortN4Btn', 'abortDenoiseBtn', 'abortInferenceBtn', 'abortBETBtn'].forEach(id => {
+    ['abortInferenceBtn'].forEach(id => {
       const btn = document.getElementById(id);
       if (btn) btn.addEventListener('click', () => this.abortCurrentStep());
     });
@@ -634,20 +593,15 @@ class SpinalCordToolboxApp {
     const sectionEnabled = {};
     const buttonsEnabled = {};
 
-    for (const pipelineStep of ['n4', 'denoise', 'inference', 'bet']) {
+    for (const pipelineStep of ['inference', 'processing']) {
       sectionEnabled[pipelineStep] = this.isStepEnabled(pipelineStep);
       buttonsEnabled[pipelineStep] = this.areStepButtonsEnabled(pipelineStep);
     }
-
-    const applyGroup = document.getElementById('applyBETGroup');
-    const applyBtn = document.getElementById('applyBETBtn');
 
     return {
       step,
       sectionEnabled,
       buttonsEnabled,
-      applyBETVisible: applyGroup ? !applyGroup.classList.contains('hidden') : false,
-      applyBETDisabled: applyBtn ? applyBtn.disabled : false,
       currentResultTab: this.currentResultTab || 'input',
       inputVisible: this._inputVisible,
       segmentationVisible: this._segmentationVisible,
@@ -718,15 +672,6 @@ class SpinalCordToolboxApp {
       overlayControl.classList.toggle('hidden', !this.inferenceExecutor.getResult('segmentation'));
     }
 
-    const applyGroup = document.getElementById('applyBETGroup');
-    if (applyGroup) {
-      applyGroup.classList.toggle('hidden', !checkpoint?.applyBETVisible);
-    }
-    const applyBtn = document.getElementById('applyBETBtn');
-    if (applyBtn) {
-      applyBtn.disabled = checkpoint?.applyBETDisabled ?? false;
-    }
-
     this.currentResultTab = checkpoint?.currentResultTab || 'input';
     this._segmentationVisible = checkpoint?.segmentationVisible ?? true;
     this._overlaySliderValue = checkpoint?.overlaySliderValue ?? 0.5;
@@ -764,135 +709,6 @@ class SpinalCordToolboxApp {
   }
 
   // ==================== Pipeline Step Methods ====================
-
-  updateDownsampleInfo() {
-    const info = this.inferenceExecutor.getVolumeInfo();
-    const el = document.getElementById('downsampleInfo');
-    if (!el || !info) return;
-    const dims = info.rasDims;
-    const spacing = info.rasSpacing;
-    const totalVoxels = dims[0] * dims[1] * dims[2];
-    el.textContent = `Resolution: ${dims[0]}x${dims[1]}x${dims[2]} (${spacing.map(v => v.toFixed(3)).join('x')}mm), ${(totalVoxels / 1e6).toFixed(1)}M voxels`;
-  }
-
-  async runDownsample() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const factorSelect = document.getElementById('downsampleFactor');
-    const factor = factorSelect ? parseInt(factorSelect.value) : 2;
-    this.setStepRunning('downsample');
-    await this.inferenceExecutor.downsample(factor);
-  }
-
-  async skipDownsample() {
-    if (this.inferenceExecutor.isRunning()) return;
-    // Remove downsample result and restore viewer to input
-    this.inferenceExecutor.removeResult('downsample');
-    this.inferenceExecutor.skipDownsample();
-    if (this.inputFile) {
-      await this.viewerController.loadBaseVolume(this.inputFile);
-      this.currentResultTab = 'input';
-      this._inputVisible = true;
-      this.applyDefaultBaseColormap();
-      this.syncWindowControls();
-      this.applyAutoContrast();
-    }
-  }
-
-  async runN4() {
-    if (this.inferenceExecutor.isRunning()) return;
-    this.beginAbortableStep('n4');
-    this.setStepRunning('n4');
-    this.inferenceExecutor.resetDownstream('n4');
-    this.resetUIDownstream('n4');
-    await this.inferenceExecutor.runN4();
-  }
-
-  async skipN4() {
-    if (this.inferenceExecutor.isRunning()) return;
-    // Remove N4 result and restore viewer to downsample result or input
-    this.inferenceExecutor.removeResult('n4');
-    this.inferenceExecutor.skipN4();
-    const downsampleResult = this.inferenceExecutor.getResult('downsample');
-    const baseFile = downsampleResult?.file || this.inputFile;
-    if (baseFile) {
-      await this.viewerController.loadBaseVolume(baseFile);
-      this.currentResultTab = downsampleResult?.file ? 'downsample' : 'input';
-      this._inputVisible = true;
-      this.applyDefaultBaseColormap();
-      this.syncWindowControls();
-      this.applyAutoContrast();
-    }
-  }
-
-  async runBET() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const methodSelect = document.getElementById('betMethodSelect');
-    const method = methodSelect ? methodSelect.value : 'bet';
-    const betFiInput = document.getElementById('betFiInput');
-    const fi = betFiInput ? parseFloat(betFiInput.value) : 0.5;
-    this.beginAbortableStep('bet');
-    this.setStepRunning('bet');
-    const modelBaseUrl = new URL(Config.MODEL_BASE_URL, window.location.href).href;
-    await this.inferenceExecutor.runBET(fi, method, modelBaseUrl);
-  }
-
-  async skipBET() {
-    if (this.inferenceExecutor.isRunning()) return;
-    // Remove BET result and let onStepComplete('bet') restore the segmentation view
-    this.inferenceExecutor.removeResult('bet');
-    this.inferenceExecutor.skipBET();
-  }
-
-  async applyBrainMask() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const applyBtn = document.getElementById('applyBETBtn');
-    if (applyBtn) applyBtn.disabled = true;
-    await this.inferenceExecutor.applyBrainMask();
-  }
-
-  async dilateBrainMask() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const dilateBtn = document.getElementById('dilateBETBtn');
-    if (dilateBtn) dilateBtn.disabled = true;
-    await this.inferenceExecutor.dilateBrainMask(1);
-  }
-
-  async erodeBrainMask() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const erodeBtn = document.getElementById('erodeBETBtn');
-    if (erodeBtn) erodeBtn.disabled = true;
-    await this.inferenceExecutor.erodeBrainMask(1);
-  }
-
-  async runDenoise() {
-    if (this.inferenceExecutor.isRunning()) return;
-    const methodSelect = document.getElementById('denoiseMethodSelect');
-    const method = methodSelect ? methodSelect.value : 'bilateral';
-    this.beginAbortableStep('denoise');
-    this.setStepRunning('denoise');
-    this.inferenceExecutor.resetDownstream('denoise');
-    this.resetUIDownstream('denoise');
-    await this.inferenceExecutor.runDenoise(method);
-  }
-
-  async skipDenoise() {
-    if (this.inferenceExecutor.isRunning()) return;
-    // Remove denoise result and restore viewer
-    this.inferenceExecutor.removeResult('nlm');
-    this.inferenceExecutor.skipDenoise();
-    // Reload the latest preprocessing base (N4 > downsample > input)
-    const n4Result = this.inferenceExecutor.getResult('n4');
-    const downsampleResult = this.inferenceExecutor.getResult('downsample');
-    const baseFile = n4Result?.file || downsampleResult?.file || this.inputFile;
-    if (baseFile) {
-      await this.viewerController.loadBaseVolume(baseFile);
-      this.currentResultTab = n4Result?.file ? 'n4' : (downsampleResult?.file ? 'downsample' : 'input');
-      this._inputVisible = true;
-      this.applyDefaultBaseColormap();
-      this.syncWindowControls();
-      this.applyAutoContrast();
-    }
-  }
 
   async runSegmentation() {
     if (this.inferenceExecutor.isRunning()) return;
@@ -945,6 +761,72 @@ class SpinalCordToolboxApp {
     });
   }
 
+  runProcessingOperation() {
+    const select = document.getElementById('processingOperationSelect');
+    const output = document.getElementById('processingOutput');
+    const operation = select?.value || 'centerline';
+    const SCT = globalThis.SCTProcessing;
+    if (!SCT) {
+      this.updateOutput('SCT processing utilities are not available');
+      return;
+    }
+
+    const write = (value) => {
+      const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+      if (output) output.textContent = text;
+      this.updateOutput(`Processing ${operation} completed`);
+    };
+
+    try {
+      if (operation === 'centerline') {
+        const dims = [5, 5, 3];
+        const seg = new Uint8Array(dims[0] * dims[1] * dims[2]);
+        seg[SCT.index3D(2, 2, 0, dims)] = 1;
+        seg[SCT.index3D(1, 2, 2, dims)] = 1;
+        seg[SCT.index3D(3, 2, 2, dims)] = 1;
+        const centerline = SCT.centerlineFromSegmentation(seg, dims);
+        const mask = SCT.createCylinderMask(dims, [1, 1, 2], centerline, 1);
+        const bbox = SCT.boundingBoxFromMask(mask, dims);
+        write({ centerline, maskVoxels: mask.reduce((sum, v) => sum + v, 0), bbox });
+      } else if (operation === 'morphometry') {
+        const dims = [4, 4, 2];
+        const seg = new Uint8Array(dims[0] * dims[1] * dims[2]);
+        for (const [x, y] of [[1, 1], [2, 1], [1, 2], [2, 2]]) seg[SCT.index3D(x, y, 0, dims)] = 1;
+        write(SCT.morphometryToCsv(SCT.sliceMorphometry(seg, dims, [0.5, 0.5, 2])));
+      } else if (operation === 'mt') {
+        const dims = [1, 1, 1];
+        const mtr = SCT.computeMTR(new Float32Array([100]), new Float32Array([80]), dims);
+        const mtsat = SCT.computeMTsat(new Float32Array([900]), new Float32Array([1000]), new Float32Array([800]), dims, {
+          trMt: 0.030, trPd: 0.030, trT1: 0.015, faMt: 9, faPd: 9, faT1: 15
+        });
+        write({ mtr: Array.from(mtr), mtsat: Array.from(mtsat.mtsat), t1map: Array.from(mtsat.t1map) });
+      } else if (operation === 'dmri') {
+        const split = SCT.splitB0Dwi(new Float32Array([1, 2, 10, 20, 100, 200]), [2, 1, 1, 3], {
+          bvecs: [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
+        });
+        write({ indexB0: split.indexB0, indexDwi: split.indexDwi, b0Mean: Array.from(split.b0Mean), dwiMean: Array.from(split.dwiMean) });
+      } else if (operation === 'registration') {
+        const dims = [5, 5, 1];
+        const src = new Float32Array(25);
+        const dst = new Float32Array(25);
+        src[SCT.index3D(1, 1, 0, dims)] = 1;
+        dst[SCT.index3D(3, 2, 0, dims)] = 1;
+        write(SCT.registerByCenterOfMass(src, dims, dst, dims));
+      } else if (operation === 'metadata') {
+        write({
+          exampleData: SCT.getSctExampleDataManifest(),
+          modelPlan: SCT.getBrowserModelInstallPlan({ tasks: SCT_TASKS }, this.selectedTask.id),
+          qcPreview: SCT.createQcReportHtml([{ process: 'browser-sct-processing', input: 'fixture', output: 'passed' }]).slice(0, 160)
+        });
+      }
+      this.updateStepBadge('processing', 'complete');
+    } catch (error) {
+      this.updateStepBadge('processing', 'pending');
+      if (output) output.textContent = error.message;
+      this.updateOutput(`Processing ${operation} failed: ${error.message}`);
+    }
+  }
+
   // ==================== Step UI Management ====================
 
   setStepRunning(step) {
@@ -960,31 +842,22 @@ class SpinalCordToolboxApp {
   getStepSectionId(step) {
     const sectionMap = {
       'load': null,
-      'downsample': 'stepDownsampleSection',
-      'n4': 'stepN4Section',
-      'bet': 'stepBETSection',
-      'denoise': 'stepDenoiseSection',
-      'inference': 'stepInferenceSection'
+      'inference': 'stepInferenceSection',
+      'processing': 'stepProcessingSection'
     };
     return sectionMap[step] || null;
   }
 
   getStepButtonIds(step) {
     const buttonMap = {
-      'downsample': ['runDownsampleBtn', 'skipDownsampleBtn'],
-      'n4': ['runN4Btn', 'skipN4Btn'],
-      'bet': ['runBETBtn', 'skipBETBtn'],
-      'denoise': ['runDenoiseBtn', 'skipDenoiseBtn'],
-      'inference': ['runSegmentation']
+      'inference': ['runSegmentation'],
+      'processing': ['runProcessingBtn']
     };
     return buttonMap[step] || [];
   }
 
   getStepAbortButtonId(step) {
     const abortButtonMap = {
-      'n4': 'abortN4Btn',
-      'bet': 'abortBETBtn',
-      'denoise': 'abortDenoiseBtn',
       'inference': 'abortInferenceBtn'
     };
     return abortButtonMap[step] || null;
@@ -1018,7 +891,7 @@ class SpinalCordToolboxApp {
   }
 
   resetAbortControls() {
-    for (const step of ['n4', 'denoise', 'inference', 'bet']) {
+    for (const step of ['inference', 'processing']) {
       this.setStepAbortVisible(step, false);
     }
 
@@ -1056,9 +929,6 @@ class SpinalCordToolboxApp {
     const overlayControl = document.getElementById('overlayControl');
     if (overlayControl) overlayControl.classList.add('hidden');
 
-    const applyGroup = document.getElementById('applyBETGroup');
-    if (applyGroup) applyGroup.classList.add('hidden');
-
     this.resetAbortControls();
   }
 
@@ -1069,23 +939,6 @@ class SpinalCordToolboxApp {
   }
 
   resetProcessingInputs() {
-    // Reset downsample
-    const downsampleFactor = document.getElementById('downsampleFactor');
-    if (downsampleFactor) downsampleFactor.value = '2';
-    const downsampleInfo = document.getElementById('downsampleInfo');
-    if (downsampleInfo) downsampleInfo.textContent = 'Loading volume info...';
-
-    // Reset BET method to SynthStrip (default)
-    const betMethodSelect = document.getElementById('betMethodSelect');
-    if (betMethodSelect) {
-      betMethodSelect.value = 'synthstrip';
-      const fiGroup = document.getElementById('betFiGroup');
-      if (fiGroup) fiGroup.style.display = 'none';
-    }
-
-    const betFiInput = document.getElementById('betFiInput');
-    if (betFiInput) betFiInput.value = String(Config.INFERENCE_DEFAULTS.fractionalIntensity);
-
     const overlapSelect = document.getElementById('overlapSelect');
     if (overlapSelect) overlapSelect.value = String(Config.INFERENCE_DEFAULTS.overlap);
 
@@ -1119,9 +972,6 @@ class SpinalCordToolboxApp {
 
     const overlayControl = document.getElementById('overlayControl');
     if (overlayControl) overlayControl.classList.add('hidden');
-
-    const applyGroup = document.getElementById('applyBETGroup');
-    if (applyGroup) applyGroup.classList.add('hidden');
 
     const opacitySlider = document.getElementById('overlayOpacity');
     if (opacitySlider) {
@@ -1178,173 +1028,14 @@ class SpinalCordToolboxApp {
     // Enable next step section
     switch (step) {
       case 'load':
-        this.setStepEnabled('downsample', true);
-        this.setStepButtonsEnabled('downsample', true);
-        this.updateDownsampleInfo();
-        break;
-      case 'downsample':
-        this.setStepEnabled('n4', true);
-        this.setStepButtonsEnabled('n4', true);
-        break;
-      case 'n4':
-        this.setStepEnabled('denoise', true);
-        this.setStepButtonsEnabled('denoise', true);
-        break;
-      case 'denoise':
         this.setStepEnabled('inference', true);
         this.setStepButtonsEnabled('inference', true);
+        this.setStepEnabled('processing', true);
+        this.setStepButtonsEnabled('processing', true);
         this.updateTaskDetails();
         break;
       case 'inference':
-        // Handled by onInferenceComplete — enable BET after segmentation
-        this.setStepEnabled('bet', true);
-        this.setStepButtonsEnabled('bet', true);
         break;
-      case 'bet': {
-        const applyGroup = document.getElementById('applyBETGroup');
-        if (status === 'skipped') {
-          // Hide apply button when BET is skipped/undone
-          if (applyGroup) applyGroup.classList.add('hidden');
-          // Show segmentation overlay (reverted to previous mask state)
-          const segResult = this.inferenceExecutor.getResult('segmentation');
-          const segFile = segResult?.file;
-          const downsampleResult = this.inferenceExecutor.getResult('downsample');
-          const betBaseFile = downsampleResult?.file || this.inputFile;
-          if (segFile && betBaseFile) {
-            await this.viewerController.showResultAsOverlay(betBaseFile, segFile, this.getSelectedColormapId());
-            this._inputVisible = false;
-            this.viewerController.setBaseOpacity(0);
-            this._segmentationVisible = true;
-            this._overlaySliderValue = 1.0;
-            this.viewerController.setOverlayOpacity(1.0);
-            const opacitySlider = document.getElementById('overlayOpacity');
-            if (opacitySlider) opacitySlider.value = 1.0;
-            const opacityDisplay = document.getElementById('overlayOpacityValue');
-            if (opacityDisplay) opacityDisplay.textContent = '100%';
-            this.syncWindowControls();
-          }
-        } else {
-          // Show brain extraction result with segmentation overlay
-          const betResult = this.inferenceExecutor.getResult('bet');
-          const segResult = this.inferenceExecutor.getResult('segmentation');
-          if (betResult?.file) {
-            await this.viewerController.loadBaseVolume(betResult.file);
-            this.currentResultTab = 'bet';
-            this._inputVisible = true;
-            this.applyDefaultBaseColormap();
-            this.syncWindowControls();
-            this.applyAutoContrast();
-            // Overlay segmentation on the brain-extracted image
-            if (segResult?.file) {
-              await this.viewerController.loadOverlay(segResult.file, this.getSelectedColormapId(), 0.5);
-              this._segmentationVisible = true;
-              this._overlaySliderValue = 0.5;
-              const opacitySlider = document.getElementById('overlayOpacity');
-              if (opacitySlider) opacitySlider.value = 0.5;
-              const opacityDisplay = document.getElementById('overlayOpacityValue');
-              if (opacityDisplay) opacityDisplay.textContent = '50%';
-            }
-          }
-          if (applyGroup) applyGroup.classList.remove('hidden');
-          const applyBtn = document.getElementById('applyBETBtn');
-          if (applyBtn) applyBtn.disabled = false;
-          const dilateBtn = document.getElementById('dilateBETBtn');
-          if (dilateBtn) dilateBtn.disabled = false;
-          const erodeBtn = document.getElementById('erodeBETBtn');
-          if (erodeBtn) erodeBtn.disabled = false;
-        }
-        this.rebuildResultsList();
-        break;
-      }
-      case 'apply-brain-mask': {
-        // Show brain-extracted image as base with updated segmentation as overlay
-        const betResult = this.inferenceExecutor.getResult('bet');
-        const segResult = this.inferenceExecutor.getResult('segmentation');
-        if (betResult?.file) {
-          await this.viewerController.loadBaseVolume(betResult.file);
-          this.currentResultTab = 'bet';
-          this._inputVisible = true;
-          this.applyDefaultBaseColormap();
-          this.syncWindowControls();
-          this.applyAutoContrast();
-          if (segResult?.file) {
-            await this.viewerController.loadOverlay(segResult.file, this.getSelectedColormapId(), 0.5);
-            this._segmentationVisible = true;
-            this._overlaySliderValue = 0.5;
-            const opacitySlider = document.getElementById('overlayOpacity');
-            if (opacitySlider) opacitySlider.value = 0.5;
-            const opacityDisplay = document.getElementById('overlayOpacityValue');
-            if (opacityDisplay) opacityDisplay.textContent = '50%';
-          }
-        }
-        this.rebuildResultsList();
-        // Keep dilation/erosion controls visible for further adjustments
-        const dilateBtn = document.getElementById('dilateBETBtn');
-        if (dilateBtn) dilateBtn.disabled = false;
-        const erodeBtn = document.getElementById('erodeBETBtn');
-        if (erodeBtn) erodeBtn.disabled = false;
-        const applyBtn = document.getElementById('applyBETBtn');
-        if (applyBtn) applyBtn.disabled = false;
-        break;
-      }
-      case 'dilate-brain-mask': {
-        // Refresh the BET preview with dilated mask + segmentation overlay
-        const betResult = this.inferenceExecutor.getResult('bet');
-        const segResult = this.inferenceExecutor.getResult('segmentation');
-        if (betResult?.file) {
-          await this.viewerController.loadBaseVolume(betResult.file);
-          this.currentResultTab = 'bet';
-          this._inputVisible = true;
-          this.applyDefaultBaseColormap();
-          this.syncWindowControls();
-          this.applyAutoContrast();
-          if (segResult?.file) {
-            await this.viewerController.loadOverlay(segResult.file, this.getSelectedColormapId(), 0.5);
-            this._segmentationVisible = true;
-            this._overlaySliderValue = 0.5;
-            const opacitySlider = document.getElementById('overlayOpacity');
-            if (opacitySlider) opacitySlider.value = 0.5;
-            const opacityDisplay = document.getElementById('overlayOpacityValue');
-            if (opacityDisplay) opacityDisplay.textContent = '50%';
-          }
-        }
-        const dilateBtn = document.getElementById('dilateBETBtn');
-        if (dilateBtn) dilateBtn.disabled = false;
-        const erodeBtn = document.getElementById('erodeBETBtn');
-        if (erodeBtn) erodeBtn.disabled = false;
-        const applyBtn = document.getElementById('applyBETBtn');
-        if (applyBtn) applyBtn.disabled = false;
-        break;
-      }
-      case 'erode-brain-mask': {
-        // Refresh the BET preview with eroded mask + segmentation overlay
-        const betResult = this.inferenceExecutor.getResult('bet');
-        const segResult = this.inferenceExecutor.getResult('segmentation');
-        if (betResult?.file) {
-          await this.viewerController.loadBaseVolume(betResult.file);
-          this.currentResultTab = 'bet';
-          this._inputVisible = true;
-          this.applyDefaultBaseColormap();
-          this.syncWindowControls();
-          this.applyAutoContrast();
-          if (segResult?.file) {
-            await this.viewerController.loadOverlay(segResult.file, this.getSelectedColormapId(), 0.5);
-            this._segmentationVisible = true;
-            this._overlaySliderValue = 0.5;
-            const opacitySlider = document.getElementById('overlayOpacity');
-            if (opacitySlider) opacitySlider.value = 0.5;
-            const opacityDisplay = document.getElementById('overlayOpacityValue');
-            if (opacityDisplay) opacityDisplay.textContent = '50%';
-          }
-        }
-        const dilateBtnE = document.getElementById('dilateBETBtn');
-        if (dilateBtnE) dilateBtnE.disabled = false;
-        const erodeBtnE = document.getElementById('erodeBETBtn');
-        if (erodeBtnE) erodeBtnE.disabled = false;
-        const applyBtnE = document.getElementById('applyBETBtn');
-        if (applyBtnE) applyBtnE.disabled = false;
-        break;
-      }
     }
 
     // Load stage data into viewer for preprocessing steps
@@ -1352,17 +1043,14 @@ class SpinalCordToolboxApp {
   }
 
   onVolumeInfo(info) {
-    this.updateDownsampleInfo();
+    void info;
   }
 
   updateStepBadge(step, status) {
     const badgeMap = {
-      'load': 'stepN4Badge', // load doesn't have its own badge, reusing
-      'downsample': 'stepDownsampleBadge',
-      'n4': 'stepN4Badge',
-      'bet': 'stepBETBadge',
-      'denoise': 'stepDenoiseBadge',
-      'inference': 'stepInferenceBadge'
+      'load': null,
+      'inference': 'stepInferenceBadge',
+      'processing': 'stepProcessingBadge'
     };
     // Load step doesn't have a visible badge
     if (step === 'load') return;
@@ -1418,13 +1106,11 @@ class SpinalCordToolboxApp {
   }
 
   resetUIDownstream(fromStep) {
-    const steps = ['n4', 'bet', 'denoise', 'inference'];
+    const steps = ['inference', 'processing'];
     const idx = steps.indexOf(fromStep);
     if (idx < 0) return;
 
     for (let i = idx + 1; i < steps.length; i++) {
-      // BET re-run does NOT reset downstream
-      if (fromStep === 'bet') break;
       this.updateStepBadge(steps[i], '');
       this.setStepEnabled(steps[i], false);
       this.setStepButtonsEnabled(steps[i], false);
@@ -1580,19 +1266,7 @@ class SpinalCordToolboxApp {
     this.updateViewerInfo(this._lastLocationData);
   }
 
-  onWorkerInitialized() {
-    // If WASM preprocessing not available, auto-select SynthStrip Fast and disable BET option
-    const betMethodSelect = document.getElementById('betMethodSelect');
-    if (betMethodSelect && !this.inferenceExecutor.wasmAvailable) {
-      betMethodSelect.value = 'synthstrip-fast';
-      // Disable the BET option
-      const betOption = betMethodSelect.querySelector('option[value="bet"]');
-      if (betOption) betOption.disabled = true;
-      // Hide FI group (not needed for SynthStrip)
-      const fiGroup = document.getElementById('betFiGroup');
-      if (fiGroup) fiGroup.style.display = 'none';
-    }
-  }
+  onWorkerInitialized() {}
 
   async onInferenceComplete() {
     const statusText = document.getElementById('statusText');
@@ -1657,9 +1331,6 @@ class SpinalCordToolboxApp {
 
     const overlayControl = document.getElementById('overlayControl');
     if (overlayControl) overlayControl.classList.add('hidden');
-
-    const applyGroup = document.getElementById('applyBETGroup');
-    if (applyGroup) applyGroup.classList.add('hidden');
 
     const opacitySlider = document.getElementById('overlayOpacity');
     if (opacitySlider) {

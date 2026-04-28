@@ -39,10 +39,6 @@ export class InferenceExecutor {
     // Step status tracking
     this.stepStatus = {
       load: 'pending',
-      downsample: 'pending',
-      n4: 'pending',
-      bet: 'pending',
-      denoise: 'pending',
       inference: 'pending'
     };
     this.volumeInfo = null;
@@ -61,9 +57,6 @@ export class InferenceExecutor {
 
   _createEmptyHiddenArtifacts() {
     return {
-      n4State: { preN4Data: null },
-      betState: { brainMask: null, preBETMask: null },
-      denoiseState: { preDenoiseData: null },
       segmentationState: { segLabelsRAS: null, segMinComponentSize: 10 }
     };
   }
@@ -322,88 +315,6 @@ export class InferenceExecutor {
     );
   }
 
-  async downsample(factor) {
-    await this.initialize();
-    this.running = true;
-    this.stepStatus.downsample = 'running';
-    this.worker.postMessage({ type: 'downsample', data: { factor } });
-  }
-
-  skipDownsample() {
-    this.stepStatus.downsample = 'skipped';
-    this.running = true;
-    this.worker.postMessage({ type: 'skip-downsample' });
-  }
-
-  async runN4() {
-    await this.initialize();
-    if (!this.pendingAbortCheckpoint || this.pendingAbortCheckpoint.step !== 'n4') {
-      this.captureCheckpoint('n4');
-    }
-    this.running = true;
-    this.currentRunningStep = 'n4';
-    this.stepStatus.n4 = 'running';
-    this.worker.postMessage({ type: 'run-n4' });
-  }
-
-  skipN4() {
-    this.stepStatus.n4 = 'skipped';
-    this.running = true;
-    this.worker.postMessage({ type: 'skip-n4' });
-  }
-
-  async runBET(fractionalIntensity, method = 'bet', modelBaseUrl) {
-    await this.initialize();
-    if (!this.pendingAbortCheckpoint || this.pendingAbortCheckpoint.step !== 'bet') {
-      this.captureCheckpoint('bet');
-    }
-    this.running = true;
-    this.currentRunningStep = 'bet';
-    this.stepStatus.bet = 'running';
-    this.worker.postMessage({ type: 'run-bet', data: { fractionalIntensity, method, modelBaseUrl } });
-  }
-
-  skipBET() {
-    this.stepStatus.bet = 'skipped';
-    this.running = true;
-    this.worker.postMessage({ type: 'skip-bet' });
-  }
-
-  async applyBrainMask() {
-    await this.initialize();
-    this.running = true;
-    this.worker.postMessage({ type: 'apply-brain-mask' });
-  }
-
-  async dilateBrainMask(iterations = 1) {
-    await this.initialize();
-    this.running = true;
-    this.worker.postMessage({ type: 'dilate-brain-mask', data: { iterations } });
-  }
-
-  async erodeBrainMask(iterations = 1) {
-    await this.initialize();
-    this.running = true;
-    this.worker.postMessage({ type: 'erode-brain-mask', data: { iterations } });
-  }
-
-  async runDenoise(method) {
-    await this.initialize();
-    if (!this.pendingAbortCheckpoint || this.pendingAbortCheckpoint.step !== 'denoise') {
-      this.captureCheckpoint('denoise');
-    }
-    this.running = true;
-    this.currentRunningStep = 'denoise';
-    this.stepStatus.denoise = 'running';
-    this.worker.postMessage({ type: 'run-denoise', data: { method } });
-  }
-
-  skipDenoise() {
-    this.stepStatus.denoise = 'skipped';
-    this.running = true;
-    this.worker.postMessage({ type: 'skip-denoise' });
-  }
-
   async runInference(settings) {
     await this.initialize();
     if (!this.pendingAbortCheckpoint || this.pendingAbortCheckpoint.step !== 'inference') {
@@ -421,10 +332,6 @@ export class InferenceExecutor {
     this.worker.postMessage({ type: 'reset-state' });
     this.stepStatus = {
       load: 'pending',
-      downsample: 'pending',
-      n4: 'pending',
-      bet: 'pending',
-      denoise: 'pending',
       inference: 'pending'
     };
     this.volumeInfo = null;
@@ -456,17 +363,8 @@ export class InferenceExecutor {
       throw new Error('No input volume is available for restore');
     }
 
-    const n4ResultData = checkpoint.results.n4?.file
-      ? await checkpoint.results.n4.file.arrayBuffer()
-      : null;
-    const denoiseResultData = checkpoint.results.nlm?.file
-      ? await checkpoint.results.nlm.file.arrayBuffer()
-      : null;
-
     return {
       inputData: checkpoint.inputBuffer.slice(0),
-      n4ResultData,
-      denoiseResultData,
       hiddenArtifacts: this._cloneHiddenArtifacts(checkpoint.hiddenArtifacts)
     };
   }
@@ -529,12 +427,10 @@ export class InferenceExecutor {
 
   // Reset downstream steps when a step is re-run
   resetDownstream(fromStep) {
-    const steps = ['load', 'n4', 'bet', 'denoise', 'inference'];
+    const steps = ['load', 'inference'];
     const idx = steps.indexOf(fromStep);
     if (idx < 0) return;
     for (let i = idx + 1; i < steps.length; i++) {
-      // BET re-run does NOT invalidate downstream (mask is independent)
-      if (fromStep === 'bet') break;
       this.stepStatus[steps[i]] = 'pending';
     }
   }

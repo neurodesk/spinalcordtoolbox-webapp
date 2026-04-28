@@ -18,6 +18,9 @@
   - Tested independently
   - Deployed independently
   - Demonstrated to users independently
+  If a feature is intentionally removed, describe the supported behavior that
+  remains or replaces it; do not create scenarios whose only assertion is that
+  the removed UI, functionality, or code path is absent.
 -->
 
 ### User Story 1 - [Brief Title] (Priority: P1)
@@ -127,7 +130,7 @@
 - **SC-006**: [Browser performance metric, e.g., "UI remains responsive while long-running inference or preprocessing executes off the main thread"]
 - **SC-007**: [Runtime fallback metric, e.g., "The workflow completes or shows recoverable status when WebGPU or optional preprocessing is unavailable"]
 - **SC-008**: [Reference parity metric, e.g., "Representative output matches the reference pipeline within documented tolerance"]
-- **SC-009**: [Testing metric, e.g., "Required tests or validation steps pass for each touched surface"]
+- **SC-009**: [Testing metric, e.g., "Required tests or validation steps pass for each touched current or replacement surface, with obsolete removed-feature tests deleted instead of replaced by absence-only checks"]
 - **SC-010**: [Telemetry privacy metric, e.g., "Captured telemetry payloads contain only documented non-patient fields"]
 
 ## Assumptions
