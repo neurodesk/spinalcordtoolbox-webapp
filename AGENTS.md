@@ -5,6 +5,8 @@
 
 spinalcordtoolbox is a browser-based spinal cord MRI segmentation app targeting Spinal Cord Toolbox stable model workflows. Patient image data stays confidential and browser-local; non-patient usage telemetry may be collected. SCT task support is manifest-driven via `web/models/manifest.json`; do not mark tasks supported until browser-runnable assets are converted and validated. See README.md for full details.
 
+Current Spec Kit plan: `specs/002-batch-processing-parity/plan.md`
+
 
 ## Development
 
