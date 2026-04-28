@@ -1,12 +1,9 @@
 <!-- SPECKIT START -->
-# Agent Instructions
+# General Instructions
 
-## Project Overview
-
-spinalcordtoolbox is a browser-based spinal cord MRI segmentation app targeting Spinal Cord Toolbox stable model workflows. Patient image data stays confidential and browser-local; non-patient usage telemetry may be collected. SCT task support is manifest-driven via `web/models/manifest.json`; do not mark tasks supported until browser-runnable assets are converted and validated. See README.md for full details.
-
-Current Spec Kit plan: `specs/002-batch-processing-parity/plan.md`
-
+- after every change to the source code make sure the Agent.md file is updated
+- after every new feature added, make sure there is a test for the feature (no tests for removing features)
+- after changing the code, start a new dev server and ask the user to check the resulting app functionality
 
 ## Development
 
@@ -38,7 +35,6 @@ Common issues it catches:
 - The inference worker uses `importScripts()` (no ES modules) — built with `wasm-pack --target no-modules`
 - Config version is bumped automatically by the GitHub Actions release workflow via `sed` — do not bump manually
 - WASM preprocessing is optional; the app works without it (skips bias correction/denoising)
-- Default target spacing: 0.3mm isotropic
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
 
 ## CI/CD
