@@ -38,7 +38,7 @@ class SpinalCordToolboxApp {
     this.currentRunningStep = null;
     this.abortUICheckpoint = null;
     this._inputVisible = true;
-    this._overlaySliderValue = 0.5;
+    this._overlaySliderValue = 0.7;
     this._segmentationVisible = true;
     this._lastLocationData = null;
     this.selectedTask = getDefaultTask();
@@ -601,7 +601,7 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     this._inputVisible = true;
     this._segmentationVisible = true;
-    this._overlaySliderValue = 0.5;
+    this._overlaySliderValue = 0.7;
     this._lastLocationData = null;
 
     this.console.clear();
@@ -1395,7 +1395,7 @@ class SpinalCordToolboxApp {
     if (container) container.innerHTML = '';
     this.viewerController.clearOverlay();
     this._segmentationVisible = true;
-    this._overlaySliderValue = 0.5;
+    this._overlaySliderValue = 0.7;
   }
 
   clearResults() {

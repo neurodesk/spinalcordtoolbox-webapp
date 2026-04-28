@@ -44,5 +44,6 @@ Common issues it catches:
 
 - **Release workflow** (`.github/workflows/release.yml`): triggers on push to main, auto-bumps version, creates tag + GitHub release
 - **Deploy workflow** (`.github/workflows/deploy-pages.yml`): triggers after release, runs JS syntax lint, downloads ONNX Runtime WASM files, deploys to GitHub Pages
+- GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files
 
 <!-- SPECKIT END -->
