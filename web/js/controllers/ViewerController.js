@@ -80,6 +80,9 @@ export class ViewerController {
     volume.cal_min = 0;
     volume.cal_max = Math.max(1, volume.global_max ?? 1);
     volume.colormap = colormap;
+    // Binary/discrete segmentation: disable trilinear smoothing so thin
+    // structures don't interpolate to fractional values that miss the LUT.
+    volume.interpolation = false;
     if (typeof this.nv.setColormap === 'function' && volume.id) {
       this.nv.setColormap(volume.id, colormap);
     }
@@ -94,10 +97,7 @@ export class ViewerController {
         url: url,
         name: file.name,
         colormap: colormap,
-        opacity,
-        visible: true,
-        cal_min: 0,
-        cal_max: 1
+        opacity
       });
       URL.revokeObjectURL(url);
 
@@ -106,6 +106,7 @@ export class ViewerController {
         this.configureSegmentationVolume(overlayIndex, colormap);
         this.nv.setOpacity(overlayIndex, opacity);
         this.nv.updateGLVolume();
+        this.nv.drawScene?.();
       }
 
       this.currentOverlayFile = file;
