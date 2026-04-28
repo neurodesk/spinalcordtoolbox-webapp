@@ -7,7 +7,7 @@ export const MODEL = {
   name: 'sct-spinalcord.onnx',
   label: 'SCT spinalcord',
   numClasses: 1,
-  patchSize: [64, 64, 64]
+  patchSize: [160, 224, 64]
 };
 
 // Available SCT task entries. Runtime details are defined in sct-tasks.js.
@@ -16,17 +16,17 @@ export const MODELS = [
     id: 'spinalcord',
     name: 'sct-spinalcord.onnx',
     label: 'Spinal cord',
-    description: 'SCT stable contrast-agnostic spinal cord segmentation. Requires converted browser model validation before execution.',
+    description: 'SCT stable contrast-agnostic spinal cord segmentation.',
     numClasses: 1,
-    patchSize: [64, 64, 64],
-    supportStatus: 'unvalidated'
+    patchSize: [160, 224, 64],
+    supportStatus: 'supported'
   }
 ];
 
 export const INFERENCE_DEFAULTS = {
   cropForegroundMargin: 20,
   overlap: 0,
-  probabilityThreshold: 0.1,
+  probabilityThreshold: 0.5,
   minComponentSize: 10
 };
 

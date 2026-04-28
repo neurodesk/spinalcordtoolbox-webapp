@@ -10,26 +10,34 @@ export const LABELS = Object.freeze([
  * Returns an object { R, G, B, A, min, max } for nv.addColormap().
  */
 export function generateNiivueColormap(taskId = 'spinalcord') {
-  const labels = getTaskLabels(taskId);
-  const size = 256;
-  const R = new Array(size).fill(0);
-  const G = new Array(size).fill(0);
-  const B = new Array(size).fill(0);
-  const A = new Array(size).fill(0);
+  const labels = [...getTaskLabels(taskId)].sort((a, b) => a.index - b.index);
+  const R = [];
+  const G = [];
+  const B = [];
+  const A = [];
+  const I = [];
+  const labelNames = [];
 
-  const foreground = labels.filter(label => label.index > 0);
-  for (const label of foreground) {
-    const idx = foreground.length === 1
-      ? 255
-      : Math.round((label.index / Math.max(...foreground.map(item => item.index))) * 255);
+  for (const label of labels) {
     const color = label.color || label.rgba || [128, 128, 128, 255];
-    R[idx] = color[0];
-    G[idx] = color[1];
-    B[idx] = color[2];
-    A[idx] = color[3];
+    R.push(color[0]);
+    G.push(color[1]);
+    B.push(color[2]);
+    A.push(color[3]);
+    I.push(label.index);
+    labelNames.push(label.name);
   }
 
-  return { R, G, B, A, min: 0, max: Math.max(1, ...foreground.map(label => label.index)) };
+  return {
+    R,
+    G,
+    B,
+    A,
+    I,
+    labels: labelNames,
+    min: 0,
+    max: Math.max(1, ...labels.map(label => label.index))
+  };
 }
 
 /**

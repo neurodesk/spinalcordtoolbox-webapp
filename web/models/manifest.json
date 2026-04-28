@@ -58,14 +58,25 @@
           "sourceFormat": "SCT model package",
           "browserFormat": "onnx",
           "filename": "sct-spinalcord.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "spinalcord:sct-spinalcord:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
+          "conversionStatus": "converted",
+          "checksum": "sha256:5ada810b71b1ad6f445b805af899bd4f6c08f85045927450dc20d2395c1beddd",
+          "sizeBytes": 123468139,
+          "patchSize": [
+            160,
+            224,
+            64
+          ],
+          "inferenceDefaults": {
+            "probabilityThreshold": 0.5,
+            "minComponentSize": 10,
+            "testTimeAugmentation": true
+          },
+          "cacheKey": "spinalcord:sct-spinalcord:stable"
         }
       ],
-      "supportStatus": "unvalidated",
-      "validationStatus": "not-run",
-      "unsupportedReason": "SCT stable model package discovery succeeded, but browser-runnable ONNX conversion has not been validated."
+      "supportStatus": "supported",
+      "validationStatus": "passed",
+      "validationSummary": "Converted SCT stable contrast-agnostic nnUNet package to ONNX and validated against the batch-processing fixture outputs."
     },
     {
       "id": "sc_lumbar_t2",
@@ -170,14 +181,25 @@
           "sourceFormat": "SCT model package",
           "browserFormat": "onnx",
           "filename": "sct-graymatter.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "graymatter:sct-graymatter:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
+          "conversionStatus": "converted",
+          "checksum": "sha256:73c1d741aa2f2f38555e250b0d69b95ae72f8d69b56c162c424985660e705897",
+          "sizeBytes": 134270580,
+          "patchSize": [
+            64,
+            64,
+            64
+          ],
+          "inferenceDefaults": {
+            "probabilityThreshold": 0.5,
+            "minComponentSize": 10,
+            "testTimeAugmentation": false
+          },
+          "cacheKey": "graymatter:sct-graymatter:stable"
         }
       ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Model architecture and preprocessing are not yet ported to the browser worker."
+      "supportStatus": "supported",
+      "validationStatus": "passed",
+      "validationSummary": "Converted SCT stable gray matter nnUNet package to an ONNX browser wrapper and validated against the T2star batch fixture."
     },
     {
       "id": "lesion_ms",

@@ -126,7 +126,8 @@ class SpinalCordToolboxApp {
     if (!this._segmentationVisible) return '';
     if (!this.nv?.volumes || this.nv.volumes.length < 2) return '';
 
-    const rawValue = data?.values?.[1]?.value;
+    const overlayIndex = this.viewerController?.getOverlayIndex?.() ?? 1;
+    const rawValue = data?.values?.[overlayIndex]?.value;
     if (!Number.isFinite(rawValue)) return '';
 
     const labelIndex = Math.round(rawValue);
@@ -190,6 +191,13 @@ class SpinalCordToolboxApp {
         }
         const display = document.getElementById('overlayOpacityValue');
         if (display) display.textContent = `${Math.round(val * 100)}%`;
+      });
+    }
+
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) {
+      inputVisibilityToggle.addEventListener('change', (e) => {
+        this.toggleInputVisibility(e.target.checked);
       });
     }
 
@@ -264,20 +272,35 @@ class SpinalCordToolboxApp {
 
     modelSelect.innerHTML = '';
     for (const task of SCT_TASKS) {
+      if (!isTaskRunnable(task)) continue;
       const option = document.createElement('option');
       option.value = task.id;
-      option.textContent = `${task.displayName} (${task.supportStatus})`;
-      option.disabled = task.supportStatus === 'retired';
+      option.textContent = task.displayName;
       if (task.id === this.selectedTask.id) option.selected = true;
       modelSelect.appendChild(option);
     }
+    this.applyTaskInferenceDefaults();
     this.updateTaskDetails();
   }
 
   onTaskSelectionChanged(taskId) {
     this.selectedTask = getTaskById(taskId);
     this.viewerController.registerSctColormap(generateNiivueColormap(this.selectedTask.id), this.getSelectedColormapId());
+    this.applyTaskInferenceDefaults();
     this.updateTaskDetails();
+  }
+
+  applyTaskInferenceDefaults() {
+    const assetDefaults = getPrimaryModelAsset(this.selectedTask)?.inferenceDefaults || {};
+    const thresholdInput = document.getElementById('thresholdInput');
+    if (thresholdInput) {
+      thresholdInput.value = String(assetDefaults.probabilityThreshold ?? Config.INFERENCE_DEFAULTS.probabilityThreshold);
+    }
+
+    const minSizeInput = document.getElementById('minSizeInput');
+    if (minSizeInput) {
+      minSizeInput.value = String(assetDefaults.minComponentSize ?? Config.INFERENCE_DEFAULTS.minComponentSize);
+    }
   }
 
   updateTaskDetails() {
@@ -554,6 +577,8 @@ class SpinalCordToolboxApp {
     await this.resetForNewFile();
     this.inputFile = file;
     this._inputVisible = true;
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
     await this.viewerController.loadBaseVolume(file);
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
@@ -688,6 +713,8 @@ class SpinalCordToolboxApp {
 
     this._inputVisible = checkpoint?.inputVisible ?? true;
     this.viewerController.setBaseOpacity(this._inputVisible ? 1 : 0);
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = this._inputVisible;
 
     const opacitySlider = document.getElementById('overlayOpacity');
     if (opacitySlider) {
@@ -726,6 +753,8 @@ class SpinalCordToolboxApp {
     const selectedTaskId = modelSelect ? modelSelect.value : DEFAULT_TASK_ID;
     const selectedTask = getTaskById(selectedTaskId);
     const selectedAsset = getPrimaryModelAsset(selectedTask);
+    const assetDefaults = selectedAsset?.inferenceDefaults || {};
+    const effectivePatchSize = selectedAsset?.patchSize || selectedTask.patchSize || Config.MODEL.patchSize;
 
     if (!isTaskRunnable(selectedTask)) {
       this.updateOutput(`SCT task "${selectedTask.displayName}" is ${selectedTask.supportStatus}: ${selectedTask.unsupportedReason || 'not validated for browser execution'}`);
@@ -756,7 +785,8 @@ class SpinalCordToolboxApp {
         appVersion: Config.VERSION
       },
       modelName: selectedAsset?.filename || Config.MODEL.name,
-      patchSize: Config.MODEL.patchSize,
+      patchSize: effectivePatchSize,
+      testTimeAugmentation: !!assetDefaults.testTimeAugmentation,
       modelBaseUrl
     });
   }
@@ -947,6 +977,8 @@ class SpinalCordToolboxApp {
 
     const minSizeInput = document.getElementById('minSizeInput');
     if (minSizeInput) minSizeInput.value = String(Config.INFERENCE_DEFAULTS.minComponentSize);
+
+    this.applyTaskInferenceDefaults();
   }
 
   resetViewerControls() {
@@ -980,6 +1012,9 @@ class SpinalCordToolboxApp {
     }
     const opacityDisplay = document.getElementById('overlayOpacityValue');
     if (opacityDisplay) opacityDisplay.textContent = '50%';
+
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
 
     const colormapSelect = document.getElementById('colormapSelect');
     if (colormapSelect) colormapSelect.value = 'gray';
@@ -1223,6 +1258,8 @@ class SpinalCordToolboxApp {
     await this.viewerController.loadBaseVolume(file);
     this.currentResultTab = stage;
     this._inputVisible = true;
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
     this.applyAutoContrast();
@@ -1242,7 +1279,7 @@ class SpinalCordToolboxApp {
         if (btn.dataset.stage === 'segmentation') {
           btn.classList.toggle('active', this._segmentationVisible);
         } else {
-          btn.classList.toggle('active', btn.dataset.stage === stage);
+          btn.classList.toggle('active', btn.dataset.stage === stage && this._inputVisible);
         }
       });
     }
@@ -1251,6 +1288,10 @@ class SpinalCordToolboxApp {
   toggleInputVisibility(visible) {
     this._inputVisible = visible;
     this.viewerController.setBaseOpacity(visible ? 1 : 0);
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = visible;
+    this.rebuildResultsList();
+    this.updateViewerInfo(this._lastLocationData);
   }
 
   toggleOverlayVisibility(visible) {
@@ -1322,6 +1363,8 @@ class SpinalCordToolboxApp {
     this.disableAllResultTabs();
     this.currentResultTab = 'input';
     this._inputVisible = true;
+    const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
 
     const resultsSection = document.getElementById('resultsSection');
     if (resultsSection) {

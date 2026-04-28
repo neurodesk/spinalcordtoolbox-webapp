@@ -11,6 +11,7 @@ export class ViewerController {
     this.updateOutput = options.updateOutput || (() => {});
     this.currentBaseFile = null;
     this.currentOverlayFile = null;
+    this.currentOverlayIndex = null;
     this.sctColormapsRegistered = new Set();
   }
 
@@ -39,6 +40,7 @@ export class ViewerController {
       URL.revokeObjectURL(url);
       this.currentBaseFile = file;
       this.currentOverlayFile = null;
+      this.currentOverlayIndex = null;
       this.updateOutput(`${file.name} loaded`);
     } catch (error) {
       this.updateOutput(`Error loading ${file.name}: ${error.message}`);
@@ -49,18 +51,32 @@ export class ViewerController {
   async loadOverlay(file, colormap = 'red', opacity = 0.5) {
     try {
       const url = URL.createObjectURL(file);
-      await this.nv.addVolumeFromUrl({ url: url, name: file.name, colormap: colormap });
+      await this.nv.addVolumeFromUrl({
+        url: url,
+        name: file.name,
+        colormap: colormap,
+        opacity,
+        visible: true,
+        cal_min: 0,
+        cal_max: 1
+      });
       URL.revokeObjectURL(url);
 
-      if (this.nv.volumes.length > 1) {
-        // Binary mask: cal_min=0, cal_max=1
-        this.nv.volumes[1].cal_min = 0;
-        this.nv.volumes[1].cal_max = 1;
-        this.nv.setOpacity(1, opacity);
+      const overlayIndex = this.nv.volumes.length - 1;
+      if (overlayIndex > 0) {
+        const overlay = this.nv.volumes[overlayIndex];
+        overlay.cal_min = 0;
+        overlay.cal_max = 1;
+        overlay.colormap = colormap;
+        if (typeof this.nv.setColormap === 'function' && overlay.id) {
+          this.nv.setColormap(overlay.id, colormap);
+        }
+        this.nv.setOpacity(overlayIndex, opacity);
         this.nv.updateGLVolume();
       }
 
       this.currentOverlayFile = file;
+      this.currentOverlayIndex = overlayIndex > 0 ? overlayIndex : null;
     } catch (error) {
       this.updateOutput(`Error loading overlay: ${error.message}`);
       console.error(error);
@@ -95,17 +111,30 @@ export class ViewerController {
   }
 
   setOverlayOpacity(value) {
-    if (this.nv.volumes.length > 1) {
-      this.nv.setOpacity(1, value);
+    const overlayIndex = this.getOverlayIndex();
+    if (overlayIndex !== null) {
+      this.nv.setOpacity(overlayIndex, value);
       this.nv.updateGLVolume();
     }
   }
 
   setOverlayColormap(colormap) {
-    if (this.nv.volumes.length > 1) {
-      this.nv.volumes[1].colormap = colormap;
+    const overlayIndex = this.getOverlayIndex();
+    if (overlayIndex !== null) {
+      const overlay = this.nv.volumes[overlayIndex];
+      overlay.colormap = colormap;
+      if (typeof this.nv.setColormap === 'function' && overlay.id) {
+        this.nv.setColormap(overlay.id, colormap);
+      }
       this.nv.updateGLVolume();
     }
+  }
+
+  getOverlayIndex() {
+    if (this.currentOverlayIndex !== null && this.nv.volumes[this.currentOverlayIndex]) {
+      return this.currentOverlayIndex;
+    }
+    return this.nv.volumes.length > 1 ? this.nv.volumes.length - 1 : null;
   }
 
   getCurrentFile() {

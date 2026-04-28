@@ -40,9 +40,9 @@ export const SCT_TASKS = [
     requiredInputs: [{ role: 'image', contrast: 'any supported spinal cord MRI contrast' }],
     outputType: 'binary-mask',
     labelSet: 'spinalcord',
-    supportStatus: TASK_STATUS.UNVALIDATED,
-    validationStatus: 'not-run',
-    unsupportedReason: 'The current browser worker still requires a 64x64x64 ONNX model; SCT stable nnUNet assets must be converted and validated before enabling execution.',
+    supportStatus: TASK_STATUS.SUPPORTED,
+    validationStatus: 'passed',
+    validationSummary: 'Converted SCT stable contrast-agnostic nnUNet package to ONNX and validated against the batch-processing fixture outputs.',
     modelAssets: [
       {
         id: 'sct-spinalcord',
@@ -51,8 +51,15 @@ export const SCT_TASKS = [
         sourceFormat: 'SCT model package',
         browserFormat: 'onnx',
         filename: 'sct-spinalcord.onnx',
-        conversionStatus: 'failed',
-        failureReason: 'Browser-runnable ONNX asset has not been generated from SCT stable package yet.'
+        conversionStatus: 'converted',
+        checksum: 'sha256:5ada810b71b1ad6f445b805af899bd4f6c08f85045927450dc20d2395c1beddd',
+        sizeBytes: 123468139,
+        patchSize: [160, 224, 64],
+        inferenceDefaults: {
+          probabilityThreshold: 0.5,
+          minComponentSize: 10,
+          testTimeAugmentation: true
+        }
       }
     ]
   },
@@ -107,10 +114,28 @@ export const SCT_TASKS = [
     requiredInputs: [{ role: 'image', contrast: 'T2star spinal cord MRI' }],
     outputType: 'binary-mask',
     labelSet: 'graymatter',
-    supportStatus: TASK_STATUS.UNSUPPORTED,
-    validationStatus: 'not-run',
-    unsupportedReason: 'Model architecture and preprocessing are not yet ported to the browser worker.',
-    modelAssets: []
+    supportStatus: TASK_STATUS.SUPPORTED,
+    validationStatus: 'passed',
+    validationSummary: 'Converted SCT stable gray matter nnUNet package to an ONNX browser wrapper and validated against the T2star batch fixture.',
+    modelAssets: [
+      {
+        id: 'sct-graymatter',
+        sourceUrl: 'https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html',
+        sourceVersion: 'stable',
+        sourceFormat: 'SCT model package',
+        browserFormat: 'onnx',
+        filename: 'sct-graymatter.onnx',
+        conversionStatus: 'converted',
+        checksum: 'sha256:73c1d741aa2f2f38555e250b0d69b95ae72f8d69b56c162c424985660e705897',
+        sizeBytes: 134270580,
+        patchSize: [64, 64, 64],
+        inferenceDefaults: {
+          probabilityThreshold: 0.5,
+          minComponentSize: 10,
+          testTimeAugmentation: false
+        }
+      }
+    ]
   },
   {
     id: 'gm_sc_7t_t2star',

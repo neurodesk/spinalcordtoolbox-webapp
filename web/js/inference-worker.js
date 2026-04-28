@@ -400,10 +400,11 @@ function orientToRAS(data, dims, perm, flip) {
 
 function padToPatchMultiple(data, dims, patchSize) {
   const [nx, ny, nz] = dims;
+  const [px, py, pz] = Array.isArray(patchSize) ? patchSize : [patchSize, patchSize, patchSize];
   const pad = (d, p) => d > p && d % p !== 0 ? Math.ceil(d / p) * p : d < p ? p : d;
-  const nnx = pad(nx, patchSize);
-  const nny = pad(ny, patchSize);
-  const nnz = pad(nz, patchSize);
+  const nnx = pad(nx, px);
+  const nny = pad(ny, py);
+  const nnz = pad(nz, pz);
 
   if (nnx === nx && nny === ny && nnz === nz) {
     return { data, dims: [nx, ny, nz] };
@@ -433,10 +434,11 @@ function padToPatchMultiple(data, dims, patchSize) {
  */
 function zeroPadToPatchMultiple(data, dims, patchSize) {
   const [nx, ny, nz] = dims;
+  const [px, py, pz] = Array.isArray(patchSize) ? patchSize : [patchSize, patchSize, patchSize];
   const pad = (d, p) => d > p && d % p !== 0 ? Math.ceil(d / p) * p : d < p ? p : d;
-  const nnx = pad(nx, patchSize);
-  const nny = pad(ny, patchSize);
-  const nnz = pad(nz, patchSize);
+  const nnx = pad(nx, px);
+  const nny = pad(ny, py);
+  const nnz = pad(nz, pz);
 
   if (nnx === nx && nny === ny && nnz === nz) {
     return { data, dims: [nx, ny, nz] };
@@ -715,6 +717,45 @@ function extractPatch3D(volume, volumeDims, position, patchDims) {
   }
 
   return patch;
+}
+
+function flipPatch3D(data, dims, axes) {
+  const [p0, p1, p2] = dims;
+  const flip0 = axes.includes(0);
+  const flip1 = axes.includes(1);
+  const flip2 = axes.includes(2);
+  const result = new Float32Array(data.length);
+
+  for (let i0 = 0; i0 < p0; i0++) {
+    const s0 = flip0 ? p0 - 1 - i0 : i0;
+    for (let i1 = 0; i1 < p1; i1++) {
+      const s1 = flip1 ? p1 - 1 - i1 : i1;
+      for (let i2 = 0; i2 < p2; i2++) {
+        const s2 = flip2 ? p2 - 1 - i2 : i2;
+        const dstIdx = i0 * p1 * p2 + i1 * p2 + i2;
+        const srcIdx = s0 * p1 * p2 + s1 * p2 + s2;
+        result[dstIdx] = data[srcIdx];
+      }
+    }
+  }
+
+  return result;
+}
+
+async function runPatchInference3D(session, inputName, outputName, patch, patchDims) {
+  const [p0, p1, p2] = patchDims;
+  const patchVoxels = p0 * p1 * p2;
+  const inputTensor = new ort.Tensor('float32', patch, [1, 1, p0, p1, p2]);
+  const results = await session.run({ [inputName]: inputTensor });
+  const output = results[outputName].data;
+  inputTensor.dispose();
+
+  const probabilities = new Float32Array(patchVoxels);
+  for (let i = 0; i < patchVoxels; i++) {
+    probabilities[i] = 1.0 / (1.0 + Math.exp(-output[i]));
+  }
+
+  return { probabilities, logits: output };
 }
 
 function accumulatePatch3D(probAccum, weightAccum, volumeDims, position, output, weights, patchDims) {
@@ -1202,6 +1243,7 @@ async function stepInference(params) {
     patchSize = [64, 64, 64],
     modelBaseUrl,
     supportStatus = 'unvalidated',
+    testTimeAugmentation = false,
     cacheKey,
     provenance = {}
   } = params;
@@ -1212,6 +1254,7 @@ async function stepInference(params) {
   self._currentTaskId = taskId;
 
   const [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2] = patchSize;
+  const patchDims = [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2];
 
   // Use denoised data if available, otherwise full RAS volume data
   let currentData = workerState.denoisedData
@@ -1223,7 +1266,7 @@ async function stepInference(params) {
   // Pad to multiples of patch size (matching Python: nearest-neighbor zoom)
   postProgress(0.05, 'Padding to patch grid...');
   const prePadDims = [...currentDims];
-  const padded = padToPatchMultiple(currentData, currentDims, PATCH_DIM0);
+  const padded = padToPatchMultiple(currentData, currentDims, patchDims);
   if (padded.dims[0] !== currentDims[0] || padded.dims[1] !== currentDims[1] || padded.dims[2] !== currentDims[2]) {
     postLog(`Padded: ${currentDims.join('x')} -> ${padded.dims.join('x')} (nearest-neighbor)`);
     currentData = padded.data;
@@ -1254,9 +1297,9 @@ async function stepInference(params) {
 
   // 3D Sliding Window Inference
   const gaussianWeights = computeGaussianWeightMap3D(PATCH_DIM0, PATCH_DIM1, PATCH_DIM2, 8);
-  const positions = computePatchPositions3D(currentDims, [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2], overlap);
+  const positions = computePatchPositions3D(currentDims, patchDims, overlap);
   const totalPatches = positions.length;
-  postLog(`Starting 3D inference: ${totalPatches} patches (${PATCH_DIM0}x${PATCH_DIM1}x${PATCH_DIM2}), overlap=${overlap}, backend=wasm`);
+  postLog(`Starting 3D inference: ${totalPatches} patches (${PATCH_DIM0}x${PATCH_DIM1}x${PATCH_DIM2}), overlap=${overlap}, TTA=${testTimeAugmentation ? 'on' : 'off'}, backend=wasm`);
 
   const totalVoxels = currentDims[0] * currentDims[1] * currentDims[2];
   const probAccum = new Float32Array(totalVoxels);
@@ -1265,21 +1308,32 @@ async function stepInference(params) {
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
   const patchVoxels = PATCH_DIM0 * PATCH_DIM1 * PATCH_DIM2;
+  const ttaAxes = [[0], [1], [2], [0, 1], [0, 2], [1, 2], [0, 1, 2]];
 
   const inferenceStartTime = performance.now();
 
   for (let pi = 0; pi < totalPatches; pi++) {
     const pos = positions[pi];
-    const patch = extractPatch3D(currentData, currentDims, pos, [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2]);
+    const patch = extractPatch3D(currentData, currentDims, pos, patchDims);
 
-    const inputTensor = new ort.Tensor('float32', patch, [1, 1, PATCH_DIM0, PATCH_DIM1, PATCH_DIM2]);
-    const results = await session.run({ [inputName]: inputTensor });
-    const output = results[outputName].data;
-    inputTensor.dispose();
+    const originalInference = await runPatchInference3D(session, inputName, outputName, patch, patchDims);
+    let probabilities = originalInference.probabilities;
 
-    const probabilities = new Float32Array(patchVoxels);
-    for (let i = 0; i < patchVoxels; i++) {
-      probabilities[i] = 1.0 / (1.0 + Math.exp(-output[i]));
+    if (testTimeAugmentation) {
+      const probabilitySum = new Float32Array(probabilities);
+      for (const axes of ttaAxes) {
+        const flippedPatch = flipPatch3D(patch, patchDims, axes);
+        const ttaInference = await runPatchInference3D(session, inputName, outputName, flippedPatch, patchDims);
+        const unflipped = flipPatch3D(ttaInference.probabilities, patchDims, axes);
+        for (let i = 0; i < patchVoxels; i++) {
+          probabilitySum[i] += unflipped[i];
+        }
+      }
+      probabilities = probabilitySum;
+      const ttaCount = ttaAxes.length + 1;
+      for (let i = 0; i < patchVoxels; i++) {
+        probabilities[i] /= ttaCount;
+      }
     }
 
     // Log first 5 patches and any foreground predictions for comparison with Python
@@ -1292,8 +1346,8 @@ async function stepInference(params) {
         if (probabilities[i] > pMax) pMax = probabilities[i];
         pMean += probabilities[i];
         if (probabilities[i] >= threshold) pAbove++;
-        if (output[i] < oMin) oMin = output[i];
-        if (output[i] > oMax) oMax = output[i];
+        if (originalInference.logits[i] < oMin) oMin = originalInference.logits[i];
+        if (originalInference.logits[i] > oMax) oMax = originalInference.logits[i];
         if (patch[i] < inMin) inMin = patch[i];
         if (patch[i] > inMax) inMax = patch[i];
         inMean += patch[i];
@@ -1303,7 +1357,7 @@ async function stepInference(params) {
       postLog(`Patch ${pi} pos=[${pos}]: in=[${inMin.toFixed(3)},${inMax.toFixed(3)}] mean=${inMean.toFixed(3)}, logit=[${oMin.toFixed(3)},${oMax.toFixed(3)}], prob=[${pMin.toFixed(4)},${pMax.toFixed(4)}] mean=${pMean.toFixed(4)}, n>thr=${pAbove}`);
     }
 
-    accumulatePatch3D(probAccum, weightAccum, currentDims, pos, probabilities, gaussianWeights, [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2]);
+    accumulatePatch3D(probAccum, weightAccum, currentDims, pos, probabilities, gaussianWeights, patchDims);
 
     if (pi % 5 === 0 || pi === totalPatches - 1) {
       const elapsed = (performance.now() - inferenceStartTime) / 1000;
@@ -1484,6 +1538,7 @@ self.onmessage = async (e) => {
           minComponentSize: settings.minComponentSize,
           modelName: settings.modelName,
           patchSize: settings.patchSize,
+          testTimeAugmentation: settings.testTimeAugmentation,
           modelBaseUrl: settings.modelBaseUrl
         });
       } catch (error) {
