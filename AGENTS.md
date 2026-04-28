@@ -33,8 +33,11 @@ Common issues it catches:
 ## Key Conventions
 
 - The inference worker uses `importScripts()` (no ES modules)
+- `ViewerController` owns NiiVue overlay lifecycle; keep segmentation as one managed overlay volume, and use segmentation-as-base mode when the input volume is hidden because NiiVue volume 0 is not a reliable hide target.
+- Route input/segmentation visibility changes through `renderViewerVolumes()` so the Results eye buttons and toolbar input toggle rebuild a consistent NiiVue volume stack.
 - Config version is bumped automatically by the GitHub Actions release workflow via `sed` on every push to `main`; it increments the patch version — do not bump manually
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
+- SCT Processing controls should not include explanatory copy about synthetic validation fixtures or generated task metadata.
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
 
 ## CI/CD

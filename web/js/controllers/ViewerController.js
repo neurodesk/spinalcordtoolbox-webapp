@@ -48,8 +48,47 @@ export class ViewerController {
     }
   }
 
+  clearVolumes() {
+    this.nv.volumes = [];
+    this.currentBaseFile = null;
+    this.currentOverlayFile = null;
+    this.currentOverlayIndex = null;
+    this.nv.updateGLVolume();
+    this.nv.drawScene?.();
+  }
+
+  clearOverlay() {
+    const overlayIndex = this.getOverlayIndex();
+    if (overlayIndex === null) return;
+
+    if (typeof this.nv.removeVolumeByIndex === 'function') {
+      this.nv.removeVolumeByIndex(overlayIndex);
+    } else {
+      this.nv.volumes.splice(overlayIndex, 1);
+      this.nv.updateGLVolume();
+      this.nv.drawScene?.();
+    }
+
+    this.currentOverlayFile = null;
+    this.currentOverlayIndex = null;
+  }
+
+  configureSegmentationVolume(index, colormap) {
+    const volume = this.nv.volumes[index];
+    if (!volume) return;
+
+    volume.cal_min = 0;
+    volume.cal_max = Math.max(1, volume.global_max ?? 1);
+    volume.colormap = colormap;
+    if (typeof this.nv.setColormap === 'function' && volume.id) {
+      this.nv.setColormap(volume.id, colormap);
+    }
+  }
+
   async loadOverlay(file, colormap = 'red', opacity = 0.5) {
     try {
+      this.clearOverlay();
+
       const url = URL.createObjectURL(file);
       await this.nv.addVolumeFromUrl({
         url: url,
@@ -64,13 +103,7 @@ export class ViewerController {
 
       const overlayIndex = this.nv.volumes.length - 1;
       if (overlayIndex > 0) {
-        const overlay = this.nv.volumes[overlayIndex];
-        overlay.cal_min = 0;
-        overlay.cal_max = 1;
-        overlay.colormap = colormap;
-        if (typeof this.nv.setColormap === 'function' && overlay.id) {
-          this.nv.setColormap(overlay.id, colormap);
-        }
+        this.configureSegmentationVolume(overlayIndex, colormap);
         this.nv.setOpacity(overlayIndex, opacity);
         this.nv.updateGLVolume();
       }
@@ -81,6 +114,16 @@ export class ViewerController {
       this.updateOutput(`Error loading overlay: ${error.message}`);
       console.error(error);
     }
+  }
+
+  async loadSegmentationAsBase(file, colormap = 'sct-spinalcord') {
+    await this.loadBaseVolume(file);
+    this.configureSegmentationVolume(0, colormap);
+    this.currentBaseFile = file;
+    this.currentOverlayFile = null;
+    this.currentOverlayIndex = null;
+    this.nv.updateGLVolume();
+    this.nv.drawScene?.();
   }
 
   async showResultAsOverlay(baseFile, overlayFile, colormap = 'sct-spinalcord') {
