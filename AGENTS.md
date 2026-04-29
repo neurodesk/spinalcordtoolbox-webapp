@@ -20,6 +20,11 @@ Common issues it catches:
 - Mismatched brackets/parens
 - Invalid ES module syntax
 
+## Dependency Maintenance
+
+- Keep npm dependencies current with `npm install <package>@latest` so `package.json` and `package-lock.json` stay in sync.
+- Keep browser CDN dependencies pinned in `web/index.html`; check the upstream package version before changing those URLs.
+
 ## Architecture
 
 - `web/js/spinalcordtoolbox-app.js` — Main app class, orchestrates everything
