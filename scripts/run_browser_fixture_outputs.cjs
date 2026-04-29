@@ -91,6 +91,89 @@ function diceVsExpected(producedLabels, expectedData) {
   return { expectedNz, producedNz, intersection, dice };
 }
 
+function resampleVolume(data, dims, srcSpacing, tgtSpacing) {
+  const [nx, ny, nz] = dims;
+  const newDims = [
+    Math.max(1, Math.round(dims[0] * srcSpacing[0] / tgtSpacing[0])),
+    Math.max(1, Math.round(dims[1] * srcSpacing[1] / tgtSpacing[1])),
+    Math.max(1, Math.round(dims[2] * srcSpacing[2] / tgtSpacing[2]))
+  ];
+  const [nnx, nny, nnz] = newDims;
+  const result = new Float32Array(nnx * nny * nnz);
+  const scaleX = (nx - 1) / Math.max(nnx - 1, 1);
+  const scaleY = (ny - 1) / Math.max(nny - 1, 1);
+  const scaleZ = (nz - 1) / Math.max(nnz - 1, 1);
+  for (let z = 0; z < nnz; z++) {
+    const sz = z * scaleZ;
+    const z0 = Math.floor(sz);
+    const z1 = Math.min(z0 + 1, nz - 1);
+    const wz = sz - z0;
+    for (let y = 0; y < nny; y++) {
+      const sy = y * scaleY;
+      const y0 = Math.floor(sy);
+      const y1 = Math.min(y0 + 1, ny - 1);
+      const wy = sy - y0;
+      for (let x = 0; x < nnx; x++) {
+        const sx = x * scaleX;
+        const x0 = Math.floor(sx);
+        const x1 = Math.min(x0 + 1, nx - 1);
+        const wx = sx - x0;
+        const c000 = data[x0 + y0*nx + z0*nx*ny];
+        const c100 = data[x1 + y0*nx + z0*nx*ny];
+        const c010 = data[x0 + y1*nx + z0*nx*ny];
+        const c110 = data[x1 + y1*nx + z0*nx*ny];
+        const c001 = data[x0 + y0*nx + z1*nx*ny];
+        const c101 = data[x1 + y0*nx + z1*nx*ny];
+        const c011 = data[x0 + y1*nx + z1*nx*ny];
+        const c111 = data[x1 + y1*nx + z1*nx*ny];
+        const c00 = c000*(1-wx) + c100*wx;
+        const c10 = c010*(1-wx) + c110*wx;
+        const c01 = c001*(1-wx) + c101*wx;
+        const c11 = c011*(1-wx) + c111*wx;
+        result[x + y*nnx + z*nnx*nny] = (c00*(1-wy) + c10*wy)*(1-wz) + (c01*(1-wy) + c11*wy)*wz;
+      }
+    }
+  }
+  return { data: result, dims: newDims };
+}
+
+function resampleLabelsNearest(data, dims, tgtDims) {
+  const [nx, ny, nz] = dims;
+  const [tnx, tny, tnz] = tgtDims;
+  const result = new Uint8Array(tnx * tny * tnz);
+  for (let z = 0; z < tnz; z++) {
+    const sz = Math.min(Math.max(0, Math.floor((z + 0.5) * nz / tnz)), nz - 1);
+    for (let y = 0; y < tny; y++) {
+      const sy = Math.min(Math.max(0, Math.floor((y + 0.5) * ny / tny)), ny - 1);
+      for (let x = 0; x < tnx; x++) {
+        const sx = Math.min(Math.max(0, Math.floor((x + 0.5) * nx / tnx)), nx - 1);
+        result[x + y*tnx + z*tnx*tny] = data[sx + sy*nx + sz*nx*ny];
+      }
+    }
+  }
+  return result;
+}
+
+function transposeXYZToZYX(data, dims, OutputCtor) {
+  const [nx, ny, nz] = dims;
+  const result = new (OutputCtor || Float32Array)(data.length);
+  for (let z = 0; z < nz; z++)
+    for (let y = 0; y < ny; y++)
+      for (let x = 0; x < nx; x++)
+        result[z + y*nz + x*nz*ny] = data[x + y*nx + z*nx*ny];
+  return { data: result, dims: [nz, ny, nx] };
+}
+
+function transposeZYXToXYZ(data, dims, OutputCtor) {
+  const [nz, ny, nx] = dims;
+  const result = new (OutputCtor || Uint8Array)(data.length);
+  for (let z = 0; z < nz; z++)
+    for (let y = 0; y < ny; y++)
+      for (let x = 0; x < nx; x++)
+        result[x + y*nx + z*nx*ny] = data[z + y*nz + x*nz*ny];
+  return { data: result, dims: [nx, ny, nz] };
+}
+
 async function runCase(fixture) {
   const inputPath = path.join(ROOT, fixture.inputPath);
   const outPath = path.join(path.dirname(inputPath), 'browser_output.nii.gz');
@@ -98,6 +181,8 @@ async function runCase(fixture) {
   const modelPath = path.join(ROOT, 'web/models', asset.filename);
 
   const { header, dims, data } = readNiftiRaw(inputPath);
+  const headerView = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  const spacing = [headerView.getFloat32(80, true), headerView.getFloat32(84, true), headerView.getFloat32(88, true)].map(v => Math.abs(v) || 1);
   const session = await ort.InferenceSession.create(modelPath, { executionProviders: ['cpu'] });
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
@@ -113,8 +198,33 @@ async function runCase(fixture) {
     return result[outputName].data;
   };
 
+  let modelInputData = data;
+  let modelInputDims = dims;
+  let modelOutputToInput = (labels, labelDims) => ({ labels, dims: labelDims });
+  if (Array.isArray(asset.preprocessing?.targetSpacing)) {
+    const targetSpacing = asset.preprocessing.targetSpacing.map((value, index) => value == null ? spacing[index] : Number(value));
+    const resampled = resampleVolume(modelInputData, modelInputDims, spacing, targetSpacing);
+    modelInputData = resampled.data;
+    modelInputDims = resampled.dims;
+    const previous = modelOutputToInput;
+    modelOutputToInput = (labels, labelDims) => {
+      const restored = previous(labels, labelDims);
+      return { labels: resampleLabelsNearest(restored.labels, restored.dims, dims), dims };
+    };
+  }
+  if (asset.preprocessing?.modelAxisOrder === 'zyx') {
+    const transposed = transposeXYZToZYX(modelInputData, modelInputDims, Float32Array);
+    modelInputData = transposed.data;
+    modelInputDims = transposed.dims;
+    const previous = modelOutputToInput;
+    modelOutputToInput = (labels, labelDims) => {
+      const restoredAxes = transposeZYXToXYZ(labels, labelDims, Uint8Array);
+      return previous(restoredAxes.data, restoredAxes.dims);
+    };
+  }
+
   const result = await pipeline.runInferencePipeline(
-    { data, dims, patchSize },
+    { data: modelInputData, dims: modelInputDims, patchSize },
     runPatch,
     {
       threshold,
@@ -129,7 +239,8 @@ async function runCase(fixture) {
   );
   await session.release();
 
-  writeUint8NiftiGz(outPath, header, dims, result.labels);
+  const restored = modelOutputToInput(result.labels, result.dims);
+  writeUint8NiftiGz(outPath, header, dims, restored.labels);
 
   const expected = loadNifti(path.join(ROOT, fixture.expectedOutputPath));
   const produced = loadNifti(outPath);

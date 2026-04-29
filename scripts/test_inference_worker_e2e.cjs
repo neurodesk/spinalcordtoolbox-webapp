@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * End-to-end test of web/js/inference-worker.js against the dmri fixture.
+ * End-to-end test of web/js/inference-worker.js against browser-runnable
+ * SCT fixture/model pairs.
  *
  * Loads the worker source as text, evaluates it in a Node context with shimmed
  * globals (self/importScripts/fetch/localforage/ort/nifti), then drives it via
- * a synthetic message and asserts the produced segmentation is non-empty.
+ * a synthetic message and asserts the produced segmentation is non-empty and
+ * overlaps the SCT batch reference.
  *
  * Catches the regression class: changes to inference-worker.js preprocessing,
- * patching, or post-processing that silently produce empty/degenerate outputs.
+ * model selection, patching, or post-processing that silently produce
+ * empty/degenerate outputs.
  */
 'use strict';
 
@@ -16,12 +19,35 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ort = require('onnxruntime-node');
 const nifti = require(path.resolve(__dirname, '../web/nifti-js/index.js'));
+const manifest = require('../web/models/manifest.json');
 
 const ROOT = path.resolve(__dirname, '..');
 const WORKER_PATH = path.join(ROOT, 'web/js/inference-worker.js');
-const MODEL_PATH = path.join(ROOT, 'web/models/sct-spinalcord.onnx');
-const FIXTURE_INPUT = path.join(ROOT, 'test_data/batch_dmri_deepseg_spinalcord/input.nii.gz');
-const FIXTURE_BATCH_OUTPUT = path.join(ROOT, 'test_data/batch_dmri_deepseg_spinalcord/batch_output.nii.gz');
+
+const FIXTURE_CASES = Object.freeze([
+  {
+    id: 'batch_dmri_deepseg_spinalcord',
+    taskId: 'spinalcord',
+    modelAssetId: 'sct-spinalcord',
+    modelName: 'sct-spinalcord.onnx',
+    patchSize: [160, 224, 64],
+    minDice: 0.5,
+    foregroundRatioTolerance: 0.5,
+    inputPath: 'test_data/batch_dmri_deepseg_spinalcord/input.nii.gz',
+    expectedOutputPath: 'test_data/batch_dmri_deepseg_spinalcord/batch_output.nii.gz'
+  },
+  {
+    id: 'batch_t2s_deepseg_graymatter',
+    taskId: 'graymatter',
+    modelAssetId: 'sct-graymatter',
+    modelName: 'sct-graymatter.onnx',
+    patchSize: [64, 64, 64],
+    minDice: 0.4,
+    foregroundRatioTolerance: 2.0,
+    inputPath: 'test_data/batch_t2s_deepseg_graymatter/input.nii.gz',
+    expectedOutputPath: 'test_data/batch_t2s_deepseg_graymatter/batch_output.nii.gz'
+  }
+]);
 
 function fail(msg) {
   console.error(`FAIL: ${msg}`);
@@ -46,6 +72,54 @@ function loadFixtureForeground(filePath) {
     if (v > 0) fg++;
   }
   return { dims, fg };
+}
+
+function decodeWorkerNifti(niftiData) {
+  const niftiBytes = niftiData instanceof ArrayBuffer
+    ? Buffer.from(new Uint8Array(niftiData))
+    : Buffer.from(niftiData.buffer || niftiData);
+  const datatype = niftiBytes.readInt16LE(70);
+  const voxOffset = Math.ceil(niftiBytes.readFloatLE(108));
+  const dims = [niftiBytes.readInt16LE(42), niftiBytes.readInt16LE(44), niftiBytes.readInt16LE(46)];
+  const n = dims[0] * dims[1] * dims[2];
+  if (datatype !== 2) fail(`expected uint8 segmentation output, got datatype=${datatype}`);
+  const labels = new Uint8Array(n);
+  let foreground = 0;
+  for (let i = 0; i < n; i++) {
+    labels[i] = niftiBytes[voxOffset + i] > 0 ? 1 : 0;
+    if (labels[i]) foreground++;
+  }
+  return { dims, labels, foreground };
+}
+
+function loadFixtureLabels(filePath) {
+  const compressed = fs.readFileSync(filePath);
+  const zlib = require('node:zlib');
+  const bytes = filePath.endsWith('.gz') ? zlib.gunzipSync(compressed) : compressed;
+  if (bytes.readInt32LE(0) !== 348) throw new Error(`Only NIfTI-1: ${filePath}`);
+  const datatype = bytes.readInt16LE(70);
+  const voxOffset = Math.ceil(bytes.readFloatLE(108));
+  const dims = [bytes.readInt16LE(42), bytes.readInt16LE(44), bytes.readInt16LE(46)];
+  const n = dims[0] * dims[1] * dims[2];
+  const labels = new Uint8Array(n);
+  let foreground = 0;
+  for (let i = 0; i < n; i++) {
+    let v = 0;
+    if (datatype === 2) v = bytes[voxOffset + i];
+    else if (datatype === 4) v = bytes.readInt16LE(voxOffset + i * 2);
+    else if (datatype === 16) v = bytes.readFloatLE(voxOffset + i * 4);
+    labels[i] = v > 0 ? 1 : 0;
+    if (labels[i]) foreground++;
+  }
+  return { dims, labels, foreground };
+}
+
+function diceCoefficient(produced, expected) {
+  let intersection = 0;
+  for (let i = 0; i < expected.labels.length; i++) {
+    if (produced.labels[i] && expected.labels[i]) intersection++;
+  }
+  return (2 * intersection) / (produced.foreground + expected.foreground || 1);
 }
 
 // Build an ort shim that maps onnxruntime-web API surface to onnxruntime-node.
@@ -81,7 +155,9 @@ function makeLocalforageShim() {
 function makeFetchShim() {
   return async (url) => {
     if (!url.endsWith('.onnx')) throw new Error(`Unexpected fetch: ${url}`);
-    const buffer = fs.readFileSync(MODEL_PATH);
+    const modelName = path.basename(new URL(url).pathname);
+    const modelPath = path.join(ROOT, 'web/models', modelName);
+    const buffer = fs.readFileSync(modelPath);
     let offset = 0;
     return {
       ok: true,
@@ -100,7 +176,9 @@ function makeFetchShim() {
   };
 }
 
-async function main() {
+async function runWorkerCase(testCase) {
+  const task = manifest.tasks.find(item => item.id === testCase.taskId);
+  const asset = task?.modelAssets?.find(item => item.id === testCase.modelAssetId);
   console.log('Loading worker source...');
   const workerSource = fs.readFileSync(WORKER_PATH, 'utf8');
 
@@ -197,12 +275,12 @@ async function main() {
     fail('worker did not register self.onmessage');
   }
 
-  console.log('Loading fixture input...');
-  const inputBytes = fs.readFileSync(FIXTURE_INPUT);
+  console.log(`Loading fixture input: ${testCase.id}...`);
+  const inputBytes = fs.readFileSync(path.join(ROOT, testCase.inputPath));
   // Wrap into an ArrayBuffer view that the worker's parser expects.
   const inputArrayBuffer = inputBytes.buffer.slice(inputBytes.byteOffset, inputBytes.byteOffset + inputBytes.byteLength);
 
-  console.log('Driving worker: init -> run...');
+  console.log(`Driving worker: init -> run ${testCase.taskId}...`);
   // init
   await selfObj.onmessage({ data: { type: 'init', version: 'test' } });
 
@@ -214,15 +292,16 @@ async function main() {
         inputData: inputArrayBuffer,
         settings: {
           overlap: 0,
-          taskId: 'spinalcord',
-          modelAssetId: 'sct-spinalcord',
+          taskId: testCase.taskId,
+          modelAssetId: testCase.modelAssetId,
           supportStatus: 'supported',
-          cacheKey: 'spinalcord:sct-spinalcord:stable',
-          provenance: { taskId: 'spinalcord', appVersion: 'test' },
+          cacheKey: `${testCase.taskId}:${testCase.modelAssetId}:stable`,
+          provenance: { taskId: testCase.taskId, appVersion: 'test' },
           probabilityThreshold: 0.5,
           minComponentSize: 10,
-          modelName: 'sct-spinalcord.onnx',
-          patchSize: [160, 224, 64],
+          modelName: testCase.modelName,
+          patchSize: testCase.patchSize,
+          preprocessing: asset?.preprocessing || {},
           testTimeAugmentation: false, // turn off TTA for speed; bug is independent of TTA
           modelBaseUrl: 'http://localhost/web/models'
         }
@@ -239,34 +318,46 @@ async function main() {
   const stageMsg = messages.find(m => m && m.type === 'stageData' && m.stage === 'segmentation');
   if (!stageMsg) fail('worker did not emit segmentation stageData');
 
-  // Decode the produced NIfTI to count foreground voxels.
-  const niftiBytes = stageMsg.niftiData instanceof ArrayBuffer
-    ? Buffer.from(new Uint8Array(stageMsg.niftiData))
-    : Buffer.from(stageMsg.niftiData.buffer || stageMsg.niftiData);
-  // Worker writes uint8 datatype=2, no gzip; parse directly.
-  const datatype = niftiBytes.readInt16LE(70);
-  const voxOffset = Math.ceil(niftiBytes.readFloatLE(108));
-  const dims = [niftiBytes.readInt16LE(42), niftiBytes.readInt16LE(44), niftiBytes.readInt16LE(46)];
-  const n = dims[0] * dims[1] * dims[2];
-  if (datatype !== 2) fail(`expected uint8 segmentation output, got datatype=${datatype}`);
-  let producedFg = 0;
-  for (let i = 0; i < n; i++) if (niftiBytes[voxOffset + i] > 0) producedFg++;
-
-  const expected = loadFixtureForeground(FIXTURE_BATCH_OUTPUT);
+  const produced = decodeWorkerNifti(stageMsg.niftiData);
+  const { dims, foreground: producedFg } = produced;
+  const expected = loadFixtureForeground(path.join(ROOT, testCase.expectedOutputPath));
+  const expectedLabels = loadFixtureLabels(path.join(ROOT, testCase.expectedOutputPath));
+  const dice = diceCoefficient(produced, expectedLabels);
 
   console.log(`Produced foreground voxels: ${producedFg}`);
   console.log(`SCT batch reference foreground voxels: ${expected.fg}`);
+  console.log(`Dice vs SCT batch reference: ${dice.toFixed(4)}`);
   console.log(`Output dims: ${dims.join('x')}, expected dims: ${expected.dims.join('x')}`);
 
-  if (producedFg === 0) fail('worker produced empty segmentation (regression: stretch-to-patch destroying anatomy?)');
-  if (producedFg < expected.fg * 0.5 || producedFg > expected.fg * 1.5) {
-    fail(`worker foreground count ${producedFg} differs from SCT batch reference ${expected.fg} by >50%`);
+  if (producedFg === 0) fail(`${testCase.id}: worker produced empty segmentation`);
+  const foregroundRatioTolerance = testCase.foregroundRatioTolerance == null ? 0.5 : testCase.foregroundRatioTolerance;
+  if (producedFg < expected.fg * (1 - foregroundRatioTolerance) || producedFg > expected.fg * (1 + foregroundRatioTolerance)) {
+    fail(`${testCase.id}: worker foreground count ${producedFg} differs from SCT batch reference ${expected.fg} by >${Math.round(foregroundRatioTolerance * 100)}%`);
   }
   if (dims[0] !== expected.dims[0] || dims[1] !== expected.dims[1] || dims[2] !== expected.dims[2]) {
-    fail(`output dims ${dims.join('x')} != expected ${expected.dims.join('x')}`);
+    fail(`${testCase.id}: output dims ${dims.join('x')} != expected ${expected.dims.join('x')}`);
+  }
+  const minDice = testCase.minDice == null ? 0.5 : testCase.minDice;
+  if (dice < minDice) {
+    fail(`${testCase.id}: worker Dice ${dice.toFixed(4)} is below the ${minDice.toFixed(4)} minimum`);
   }
 
-  console.log('PASS: inference-worker e2e on dmri fixture');
+  console.log(`PASS: inference-worker e2e on ${testCase.id}`);
+}
+
+async function main() {
+  const runnableCases = FIXTURE_CASES.filter(testCase => {
+    const task = manifest.tasks.find(item => item.id === testCase.taskId);
+    if (!task || task.supportStatus !== 'supported' || task.validationStatus !== 'passed') {
+      console.log(`SKIP: ${testCase.id} (${testCase.taskId} is not supported/passed in manifest)`);
+      return false;
+    }
+    return true;
+  });
+  if (runnableCases.length === 0) fail('no supported inference-worker fixture cases were selected');
+  for (const testCase of runnableCases) {
+    await runWorkerCase(testCase);
+  }
 }
 
 main().catch((err) => {

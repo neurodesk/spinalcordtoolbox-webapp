@@ -781,6 +781,7 @@ class SpinalCordToolboxApp {
       },
       modelName: selectedAsset?.filename || Config.MODEL.name,
       patchSize: effectivePatchSize,
+      preprocessing: selectedAsset?.preprocessing || {},
       testTimeAugmentation: !!document.getElementById('ttaToggle')?.checked,
       modelBaseUrl
     });

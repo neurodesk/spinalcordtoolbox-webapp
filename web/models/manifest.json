@@ -189,6 +189,9 @@
             64,
             64
           ],
+          "preprocessing": {
+            "modelAxisOrder": "zyx"
+          },
           "inferenceDefaults": {
             "probabilityThreshold": 0.5,
             "minComponentSize": 10,

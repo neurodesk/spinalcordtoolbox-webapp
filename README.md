@@ -86,7 +86,8 @@ This parses all JS files under `web/` using [acorn](https://github.com/acornjs/a
 
 GitHub Pages publishes two builds:
 
-- `/staging/` is rebuilt automatically from `main` on every push.
+- `/staging/` is rebuilt automatically from `main` on every push and displays
+  the app version with a `-staging+<sha>` suffix.
 - The live root app is built from the latest `vX.Y.Z` release tag.
 
 To promote the currently staged `main` build to live, run the manual **Release**

@@ -714,6 +714,32 @@ function resampleLabelsNearest(data, dims, tgtDims) {
   return result;
 }
 
+function transposeXYZToZYX(data, dims, OutputCtor) {
+  const [nx, ny, nz] = dims;
+  const result = new (OutputCtor || Float32Array)(data.length);
+  for (let z = 0; z < nz; z++) {
+    for (let y = 0; y < ny; y++) {
+      for (let x = 0; x < nx; x++) {
+        result[z + y*nz + x*nz*ny] = data[x + y*nx + z*nx*ny];
+      }
+    }
+  }
+  return { data: result, dims: [nz, ny, nx] };
+}
+
+function transposeZYXToXYZ(data, dims, OutputCtor) {
+  const [nz, ny, nx] = dims;
+  const result = new (OutputCtor || Uint8Array)(data.length);
+  for (let z = 0; z < nz; z++) {
+    for (let y = 0; y < ny; y++) {
+      for (let x = 0; x < nx; x++) {
+        result[x + y*nx + z*nx*ny] = data[z + y*nz + x*nz*ny];
+      }
+    }
+  }
+  return { data: result, dims: [nx, ny, nz] };
+}
+
 function inverseOrient(data, dims, perm, flip, origDims) {
   const [dx, dy, dz] = dims;
   const [nx, ny, nz] = origDims;
@@ -957,7 +983,8 @@ async function stepInference(params) {
     supportStatus = 'unvalidated',
     testTimeAugmentation = false,
     cacheKey,
-    provenance = {}
+    provenance = {},
+    preprocessing = {}
   } = params;
 
   if (supportStatus !== 'supported') {
@@ -983,12 +1010,47 @@ async function stepInference(params) {
   const outputName = session.outputNames[0];
 
   const inferenceStartTime = performance.now();
+  let modelInputData = new Float32Array(workerState.rasData);
+  let modelInputDims = [...workerState.rasDims];
+  let modelOutputToRas = (labels, dims, OutputCtor) => ({ data: labels, dims, ctor: OutputCtor || Uint8Array });
+
+  const targetSpacing = Array.isArray(preprocessing.targetSpacing)
+    ? preprocessing.targetSpacing.map((value, index) => value == null ? workerState.rasSpacing[index] : Number(value))
+    : null;
+  if (targetSpacing) {
+    const resampled = resampleVolume(modelInputData, modelInputDims, workerState.rasSpacing, targetSpacing);
+    postLog(`Resampled for ${taskId}: ${modelInputDims.join('x')} -> ${resampled.dims.join('x')} at ${targetSpacing.map(v => v.toFixed(3)).join('x')}mm`);
+    modelInputData = resampled.data;
+    modelInputDims = resampled.dims;
+    const previousOutputToRas = modelOutputToRas;
+    modelOutputToRas = (labels, dims, OutputCtor) => {
+      const restored = previousOutputToRas(labels, dims, OutputCtor);
+      return {
+        data: resampleLabelsNearest(restored.data, restored.dims, workerState.rasDims),
+        dims: [...workerState.rasDims],
+        ctor: OutputCtor || Uint8Array
+      };
+    };
+  }
+
+  if (preprocessing.modelAxisOrder === 'zyx') {
+    const transposed = transposeXYZToZYX(modelInputData, modelInputDims, Float32Array);
+    postLog(`Reordered for ${taskId}: ${modelInputDims.join('x')} xyz -> ${transposed.dims.join('x')} zyx`);
+    modelInputData = transposed.data;
+    modelInputDims = transposed.dims;
+    const previousOutputToRas = modelOutputToRas;
+    modelOutputToRas = (labels, dims, OutputCtor) => {
+      const restoredAxes = transposeZYXToXYZ(labels, dims, OutputCtor || Uint8Array);
+      return previousOutputToRas(restoredAxes.data, restoredAxes.dims, OutputCtor || Uint8Array);
+    };
+  }
+
   // Delegate the per-patch inference + sliding-window orchestration to the
   // shared pipeline module, injecting an ORT-backed runPatch callback.
   const result = await SCTInferencePipeline.runInferencePipeline(
     {
-      data: new Float32Array(workerState.rasData),
-      dims: [...workerState.rasDims],
+      data: modelInputData,
+      dims: modelInputDims,
       patchSize
     },
     async (patch, patchDims) => {
@@ -1018,11 +1080,12 @@ async function stepInference(params) {
 
   // Stash the unmasked (pre-CC) labels for downstream browser processing.
   postProgress(0.86, 'Inverse transform...');
-  workerState.segLabelsRAS = new Uint8Array(result.preCleanupLabels);
+  const preCleanupRAS = modelOutputToRas(result.preCleanupLabels, result.dims, Uint8Array);
+  workerState.segLabelsRAS = new Uint8Array(preCleanupRAS.data);
   workerState.segMinComponentSize = minComponentSize;
   emitSegmentationStateArtifact();
 
-  let outputLabels = result.labels;
+  let outputLabels = modelOutputToRas(result.labels, result.dims, Uint8Array).data;
 
   // Inverse orient
   if (!workerState.isIdentity) {
@@ -1121,6 +1184,7 @@ self.onmessage = async (e) => {
           minComponentSize: settings.minComponentSize,
           modelName: settings.modelName,
           patchSize: settings.patchSize,
+          preprocessing: settings.preprocessing,
           testTimeAugmentation: settings.testTimeAugmentation,
           modelBaseUrl: settings.modelBaseUrl
         });

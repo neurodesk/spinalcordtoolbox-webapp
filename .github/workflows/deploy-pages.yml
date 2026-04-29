@@ -1,6 +1,8 @@
 name: Deploy to GitHub Pages
 
 on:
+  push:
+    branches: [main]
   workflow_run:
     workflows: ["Release"]
     types: [completed]
@@ -18,6 +20,7 @@ concurrency:
 jobs:
   build-production:
     if: >-
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
@@ -83,6 +86,7 @@ jobs:
 
   build-staging:
     if: >-
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
@@ -91,6 +95,14 @@ jobs:
         with:
           ref: main
           lfs: true
+
+      - name: Mark staging build version
+        run: |
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          BASE_VERSION="$(bash scripts/get_version.sh)"
+          STAGING_VERSION="${BASE_VERSION}-staging+${SHORT_SHA}"
+          sed -i -E "s/^export const VERSION = '[^']+';$/export const VERSION = '${STAGING_VERSION}';/" web/js/app/config.js
+          echo "Building staging as ${STAGING_VERSION}."
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
