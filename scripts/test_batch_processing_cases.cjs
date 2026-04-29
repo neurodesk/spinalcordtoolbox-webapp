@@ -6,7 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const manifest = require('../web/models/manifest.json');
 const fixtures = require('./batch-parity-fixtures.cjs');
-const { ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
+const { dockerBatchCommand, ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
 const {
   parseActiveBatchSteps,
   assertNoStaleMappings,
@@ -171,9 +171,15 @@ function assertNegativeCases() {
   }
 }
 
+function assertDockerFixtureCommandPermissions() {
+  const command = dockerBatchCommand();
+  assert.ok(command.includes('chmod -R a+rwX /outputs'), 'Docker fixture generation leaves test_data writable by the host test runner');
+}
+
 const steps = parseActiveBatchSteps(batchScript);
 assert.equal(steps.length, 62, 'all active SCT commands in batch_processing.sh are represented');
 assertNoStaleMappings(steps, steps);
+assertDockerFixtureCommandPermissions();
 
 for (const featureName of Object.keys(WEBAPP_PIPELINE_FEATURES)) assertWebappPipelineFeature(featureName);
 

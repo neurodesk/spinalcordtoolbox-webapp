@@ -116,12 +116,14 @@ fi
 cp "$script" /outputs/batch_processing.sh
 SCT_BP_QC_FOLDER=/tmp/sct-batch-qc SCT_BP_NO_REMOVE_QC=1 bash "$script"
 ${copyCommands}
+chmod -R a+rwX /outputs
 `;
 }
 
 module.exports = {
   DEFAULT_SCT_IMAGE,
   DOCKER_FIXTURE_MAP,
+  dockerBatchCommand,
   ensureSctBatchFixtures,
   hasSctBatchFixtures,
   missingSctFixturePaths

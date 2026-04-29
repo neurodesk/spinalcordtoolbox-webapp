@@ -129,9 +129,12 @@ export const SCT_TASKS = [
         checksum: 'sha256:73c1d741aa2f2f38555e250b0d69b95ae72f8d69b56c162c424985660e705897',
         sizeBytes: 134270580,
         patchSize: [64, 64, 64],
+        preprocessing: {
+          modelAxisOrder: 'zyx'
+        },
         inferenceDefaults: {
           probabilityThreshold: 0.5,
-          minComponentSize: 10,
+          minComponentSize: 1000,
           testTimeAugmentation: false
         }
       }

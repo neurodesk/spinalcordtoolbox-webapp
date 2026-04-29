@@ -44,9 +44,10 @@ Common issues it catches:
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
 - SCT Processing controls should not include explanatory copy about synthetic validation fixtures or generated task metadata.
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
-- Gray matter (`graymatter`) uses a 2D nnU-Net wrapper with stronger connected-component cleanup; keep its manifest preprocessing (`modelAxisOrder`) and defaults in sync with worker-level fixture parity against `test_data/batch_t2s_deepseg_graymatter`.
+- Gray matter (`graymatter`) uses a 2D nnU-Net wrapper with stronger connected-component cleanup; keep its preprocessing (`modelAxisOrder: 'zyx'`) and defaults (`minComponentSize: 1000`) in sync across `web/js/app/sct-tasks.js` AND `web/models/manifest.json` — the runtime reads `sct-tasks.js`, so missing fields there silently disable axis reordering and produce empty/near-empty masks.
 - Spinal cord (`spinalcord`) uses conditional model-axis preprocessing for sagittal-like volumes (`zyx-if-x-short-z-long`); keep it covered by worker/parity tests for `test_data/batch_t2_deepseg_spinalcord`.
 - UI control coverage is enforced by `npm run test:ui`; browser-generated fixture parity for critical supported tasks is enforced by `npm run test:fixtures`. Regenerate fixture outputs with `npm run test:fixtures:generate` when model preprocessing changes.
+- Docker-generated SCT test fixtures must leave `test_data` writable by the host runner so browser fixture output generation can create `browser_output.nii.gz` in CI.
 - `batch_t2_label_vertebrae` is intentionally absent from `test_fixture_parity_outputs.cjs` — the browser webapp does not yet emit per-vertebra labels (1-11), only a binary mask. Re-add with multi-label gating once vertebral labeling lands.
 
 ## Test surface
