@@ -53,7 +53,7 @@ Common issues it catches:
 | `npm run test:viewer` | `ViewerController` overlay lifecycle against a fake NiiVue |
 | `npm run test:processing` | `sct-processing.js` pure-function unit tests (signal processing, segmentation utilities) |
 | `npm run test:batch:webapp` | 62 `batch_processing.sh` SCT commands → browser feature mapping |
-| `npm run test:fixtures` | Dice + foreground-ratio gates for 7 segmentation fixtures (uses checked-in `browser_output.nii.gz`) |
+| `npm run test:fixtures` | Dice + foreground-ratio gates for 7 segmentation fixtures; generates missing SCT batch references with `vnmd/spinalcordtoolbox_7.1:20260428` and missing `browser_output.nii.gz` files with real ONNX inference |
 | `npm run test:fixtures:generate` | Regenerates `browser_output.nii.gz` by running real ONNX inference (Node-only, no browser) |
 | `npm run test:controllers` | `FileIOController`, `DicomController`, `InferenceExecutor` against fake DOM/Worker |
 | `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager` against fake DOM |
@@ -66,7 +66,7 @@ Common issues it catches:
 ## CI/CD
 
 - **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests); the `release` job only runs on green and bumps version, creates tag + GitHub release.
-- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): the `test` job runs `npm run test:fast` on every push/dispatch; `build-production` and `build-staging` depend on it. Deploys staging from `main`, production from the latest release tag, downloads ONNX Runtime WASM files, deploys to GitHub Pages.
+- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): the `test` job runs `npm run test:fast` on every push/dispatch with enough time for Docker-backed SCT fixture generation; `build-production` and `build-staging` depend on it. Deploys staging from `main`, production from the latest release tag, downloads ONNX Runtime WASM files, deploys to GitHub Pages.
 - GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files.
 
 <!-- SPECKIT END -->

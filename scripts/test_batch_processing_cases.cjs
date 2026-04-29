@@ -6,6 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const manifest = require('../web/models/manifest.json');
 const fixtures = require('./batch-parity-fixtures.cjs');
+const { ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
 const {
   parseActiveBatchSteps,
   assertNoStaleMappings,
@@ -22,6 +23,7 @@ const {
 } = require('./batch-parity-lib.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
+ensureSctBatchFixtures(ROOT);
 const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
 const executorJs = fs.readFileSync(path.join(ROOT, 'web/js/controllers/InferenceExecutor.js'), 'utf8');

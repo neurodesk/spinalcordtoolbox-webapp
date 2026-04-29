@@ -2,10 +2,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const fixtures = require('./batch-parity-fixtures.cjs');
 const { loadNifti } = require('./batch-parity-lib.cjs');
+const { ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
 const manifest = require('../web/models/manifest.json');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -93,6 +95,30 @@ const supportedTasks = new Set(
     .filter(task => task.supportStatus === 'supported' && task.validationStatus === 'passed')
     .map(task => task.id)
 );
+
+function missingBrowserOutputs() {
+  return CRITICAL_BROWSER_OUTPUTS
+    .map(check => fixtures.FIXTURE_CASES.find(item => item.id === check.id))
+    .filter(Boolean)
+    .map(fixture => path.join(ROOT, path.dirname(fixture.inputPath), 'browser_output.nii.gz'))
+    .filter(filePath => !fs.existsSync(filePath));
+}
+
+function ensureBrowserOutputs() {
+  const force = process.env.BROWSER_FIXTURE_REGENERATE === '1';
+  if (!force && missingBrowserOutputs().length === 0) return;
+
+  const result = spawnSync(process.execPath, [path.join(ROOT, 'scripts/run_browser_fixture_outputs.cjs')], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: process.env
+  });
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, 'browser fixture output generation exits successfully');
+}
+
+ensureSctBatchFixtures(ROOT);
+ensureBrowserOutputs();
 
 for (const taskId of supportedTasks) {
   assert.ok(
