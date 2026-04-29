@@ -66,7 +66,7 @@ Common issues it catches:
 ## CI/CD
 
 - **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests); the `release` job only runs on green and bumps version, creates tag + GitHub release.
-- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): the `test` job runs `npm run test:fast` on every push/dispatch with enough time for Docker-backed SCT fixture generation; `build-production` and `build-staging` depend on it. Deploys staging from `main`, production from the latest release tag, downloads ONNX Runtime WASM files, deploys to GitHub Pages.
+- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): deploys staging from `main` immediately on pushes to `main`, and deploys production from the latest release tag after the manual release workflow completes successfully. It downloads ONNX Runtime WASM files and verifies model assets before deploying to GitHub Pages; tests are run by the release workflow, not the deploy workflow.
 - GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files.
 
 <!-- SPECKIT END -->
