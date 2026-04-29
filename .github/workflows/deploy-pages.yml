@@ -57,10 +57,7 @@ jobs:
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
           asset_paths = list(Path("web/models").glob("*.onnx"))
-          asset_paths += [
-              Path("web/models/templates/PAM50/PAM50_t2.nii.gz"),
-              Path("web/models/templates/PAM50/PAM50_levels.nii.gz"),
-          ]
+          asset_paths += list(Path("web/models/templates").glob("**/*.nii.gz"))
 
           for path in sorted(asset_paths):
               data = path.read_bytes()
@@ -111,10 +108,7 @@ jobs:
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
           asset_paths = list(Path("web/models").glob("*.onnx"))
-          asset_paths += [
-              Path("web/models/templates/PAM50/PAM50_t2.nii.gz"),
-              Path("web/models/templates/PAM50/PAM50_levels.nii.gz"),
-          ]
+          asset_paths += list(Path("web/models/templates").glob("**/*.nii.gz"))
 
           for path in sorted(asset_paths):
               data = path.read_bytes()
