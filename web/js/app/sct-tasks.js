@@ -55,6 +55,9 @@ export const SCT_TASKS = [
         checksum: 'sha256:5ada810b71b1ad6f445b805af899bd4f6c08f85045927450dc20d2395c1beddd',
         sizeBytes: 123468139,
         patchSize: [160, 224, 64],
+        preprocessing: {
+          modelAxisOrder: 'zyx-if-x-short-z-long'
+        },
         inferenceDefaults: {
           probabilityThreshold: 0.5,
           minComponentSize: 10,

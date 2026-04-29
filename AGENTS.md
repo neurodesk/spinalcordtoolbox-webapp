@@ -55,6 +55,7 @@ Common issues it catches:
 | Script | What it covers |
 | --- | --- |
 | `npm run lint` | acorn syntax check on all `web/**/*.js` |
+| `npm run test:manifest` | Asserts `web/js/app/sct-tasks.js` (read by the browser) and `web/models/manifest.json` (read by fixture-parity scripts) agree on `preprocessing`, `inferenceDefaults`, `patchSize`, `checksum`, `filename` for every supported task. Catches the silent runtime drift class that fixture tests miss. |
 | `npm run test:ui` | Static control-presence audit: every `index.html` interactive control is referenced in JS and assigned a coverage source |
 | `npm run test:viewer` | `ViewerController` overlay lifecycle against a fake NiiVue |
 | `npm run test:processing` | `sct-processing.js` pure-function unit tests (signal processing, segmentation utilities) |
@@ -66,7 +67,7 @@ Common issues it catches:
 | `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
 | `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
 | `npm run test:server` | Dev server graceful restart |
-| `npm run test:fast` | Lint + UI + viewer + processing + batch + fixtures + controllers + UI modules (no real-inference tests) |
+| `npm run test:fast` | Lint + manifest consistency + UI + viewer + processing + batch + fixtures + controllers + UI modules (no real-inference tests) |
 | `npm test` | Full suite: `test:fast` + `test:inference:e2e` + `test:worker:protocol` + `test:server` |
 
 ## CI/CD
