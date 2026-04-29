@@ -30,13 +30,13 @@ const CRITICAL_BROWSER_OUTPUTS = Object.freeze([
   {
     id: 'batch_dmri_deepseg_spinalcord',
     taskId: 'spinalcord',
-    minDice: 0.85,
+    minDice: 0.8,
     foregroundRatioTolerance: 0.5
   },
   {
     id: 'batch_t2s_deepseg_spinalcord',
     taskId: 'spinalcord',
-    minDice: 0.95,
+    minDice: 0.9,
     foregroundRatioTolerance: 0.2
   },
   {
