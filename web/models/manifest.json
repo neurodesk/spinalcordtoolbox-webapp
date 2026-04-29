@@ -71,6 +71,9 @@
             "minComponentSize": 10,
             "testTimeAugmentation": true
           },
+          "preprocessing": {
+            "modelAxisOrder": "zyx-if-x-short-z-long"
+          },
           "cacheKey": "spinalcord:sct-spinalcord:stable"
         }
       ],
@@ -194,7 +197,7 @@
           },
           "inferenceDefaults": {
             "probabilityThreshold": 0.5,
-            "minComponentSize": 10,
+            "minComponentSize": 1000,
             "testTimeAugmentation": false
           },
           "cacheKey": "graymatter:sct-graymatter:stable"

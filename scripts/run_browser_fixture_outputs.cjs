@@ -78,6 +78,16 @@ function resolveTaskAsset(fixtureId) {
   return { taskId, asset };
 }
 
+function shouldUseZYXModelAxisOrder(preprocessing, dims, patchSize) {
+  const modelAxisOrder = preprocessing?.modelAxisOrder;
+  if (modelAxisOrder === 'zyx') return true;
+  if (modelAxisOrder !== 'zyx-if-x-short-z-long') return false;
+
+  const [nx, , nz] = dims;
+  const [px] = Array.isArray(patchSize) ? patchSize : [];
+  return Number.isFinite(px) && nx < px && nz >= px;
+}
+
 function diceVsExpected(producedLabels, expectedData) {
   let expectedNz = 0, producedNz = 0, intersection = 0;
   for (let i = 0; i < expectedData.length; i++) {
@@ -212,7 +222,7 @@ async function runCase(fixture) {
       return { labels: resampleLabelsNearest(restored.labels, restored.dims, dims), dims };
     };
   }
-  if (asset.preprocessing?.modelAxisOrder === 'zyx') {
+  if (shouldUseZYXModelAxisOrder(asset.preprocessing, modelInputDims, patchSize)) {
     const transposed = transposeXYZToZYX(modelInputData, modelInputDims, Float32Array);
     modelInputData = transposed.data;
     modelInputDims = transposed.dims;

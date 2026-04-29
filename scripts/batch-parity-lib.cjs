@@ -328,6 +328,17 @@ function compareFixtureCase(fixtureCase, rootDir, producedPath = null) {
   try {
     const expectedPath = path.join(rootDir, fixtureCase.expectedOutputPath);
     const actualProducedPath = producedPath || generateBrowserEquivalentOutput(fixtureCase, rootDir);
+    if (path.resolve(actualProducedPath) === path.resolve(expectedPath)) {
+      return parityResult(fixtureCase.id, 'fail', 'missing-browser-output', {
+        message: 'Refusing to compare expected fixture output to itself',
+        expected: fixtureCase.expectedOutputPath
+      });
+    }
+    if (!fs.existsSync(actualProducedPath)) {
+      return parityResult(fixtureCase.id, 'fail', 'missing-browser-output', {
+        produced: path.relative(rootDir, actualProducedPath)
+      });
+    }
     const expected = loadNifti(expectedPath);
     const produced = loadNifti(actualProducedPath);
     const mismatches = compareNiftiOutputs(
@@ -356,7 +367,7 @@ function compareFixtureCase(fixtureCase, rootDir, producedPath = null) {
 }
 
 function generateBrowserEquivalentOutput(fixtureCase, rootDir) {
-  return path.join(rootDir, fixtureCase.expectedOutputPath);
+  return path.join(rootDir, path.dirname(fixtureCase.inputPath), 'browser_output.nii.gz');
 }
 
 function generateSummary(results) {

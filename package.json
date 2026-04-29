@@ -1,11 +1,18 @@
 {
   "scripts": {
     "lint": "node scripts/check-syntax.mjs",
-    "test": "npm run lint && npm run test:viewer && npm run test:processing && npm run test:batch:webapp && npm run test:inference:e2e && npm run test:server",
+    "test": "npm run test:fast && npm run test:inference:e2e && npm run test:worker:protocol && npm run test:server",
+    "test:fast": "npm run lint && npm run test:ui && npm run test:viewer && npm run test:processing && npm run test:batch:webapp && npm run test:fixtures && npm run test:controllers && npm run test:ui:modules",
+    "test:ui": "node scripts/test_ui_coverage.cjs",
     "test:viewer": "node --no-warnings scripts/test_viewer_controller.mjs",
     "test:processing": "node scripts/test_sct_processing.cjs",
     "test:batch:webapp": "node scripts/test_batch_processing_cases.cjs",
+    "test:fixtures": "node scripts/test_fixture_parity_outputs.cjs",
+    "test:fixtures:generate": "node scripts/run_browser_fixture_outputs.cjs",
+    "test:controllers": "node --no-warnings scripts/test_file_io_controller.mjs && node --no-warnings scripts/test_dicom_controller.mjs && node --no-warnings scripts/test_inference_executor.mjs",
+    "test:ui:modules": "node --no-warnings scripts/test_ui_modules.mjs",
     "test:inference:e2e": "node scripts/test_inference_worker_e2e.cjs",
+    "test:worker:protocol": "node scripts/test_inference_worker_protocol.cjs",
     "test:server": "bash scripts/test_run_server_restart.sh"
   },
   "dependencies": {

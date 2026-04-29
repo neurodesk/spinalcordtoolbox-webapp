@@ -26,6 +26,17 @@ const WORKER_PATH = path.join(ROOT, 'web/js/inference-worker.js');
 
 const FIXTURE_CASES = Object.freeze([
   {
+    id: 'batch_t2_deepseg_spinalcord',
+    taskId: 'spinalcord',
+    modelAssetId: 'sct-spinalcord',
+    modelName: 'sct-spinalcord.onnx',
+    patchSize: [160, 224, 64],
+    minDice: 0.95,
+    foregroundRatioTolerance: 0.1,
+    inputPath: 'test_data/batch_t2_deepseg_spinalcord/input.nii.gz',
+    expectedOutputPath: 'test_data/batch_t2_deepseg_spinalcord/batch_output.nii.gz'
+  },
+  {
     id: 'batch_dmri_deepseg_spinalcord',
     taskId: 'spinalcord',
     modelAssetId: 'sct-spinalcord',
@@ -42,8 +53,8 @@ const FIXTURE_CASES = Object.freeze([
     modelAssetId: 'sct-graymatter',
     modelName: 'sct-graymatter.onnx',
     patchSize: [64, 64, 64],
-    minDice: 0.4,
-    foregroundRatioTolerance: 2.0,
+    minDice: 0.7,
+    foregroundRatioTolerance: 0.15,
     inputPath: 'test_data/batch_t2s_deepseg_graymatter/input.nii.gz',
     expectedOutputPath: 'test_data/batch_t2s_deepseg_graymatter/batch_output.nii.gz'
   }
@@ -297,10 +308,10 @@ async function runWorkerCase(testCase) {
           supportStatus: 'supported',
           cacheKey: `${testCase.taskId}:${testCase.modelAssetId}:stable`,
           provenance: { taskId: testCase.taskId, appVersion: 'test' },
-          probabilityThreshold: 0.5,
-          minComponentSize: 10,
+          probabilityThreshold: asset?.inferenceDefaults?.probabilityThreshold ?? 0.5,
+          minComponentSize: asset?.inferenceDefaults?.minComponentSize ?? 10,
           modelName: testCase.modelName,
-          patchSize: testCase.patchSize,
+          patchSize: testCase.patchSize || asset?.patchSize,
           preprocessing: asset?.preprocessing || {},
           testTimeAugmentation: false, // turn off TTA for speed; bug is independent of TTA
           modelBaseUrl: 'http://localhost/web/models'
@@ -343,6 +354,7 @@ async function runWorkerCase(testCase) {
   }
 
   console.log(`PASS: inference-worker e2e on ${testCase.id}`);
+  return { messages, dims, producedFg, dice, expected };
 }
 
 async function main() {
@@ -360,7 +372,15 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err && err.stack || err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Test crashed:', err && err.stack || err);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  runWorkerCase,
+  FIXTURE_CASES,
+  fail
+};

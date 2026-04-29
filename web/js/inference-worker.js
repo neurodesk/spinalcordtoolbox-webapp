@@ -782,6 +782,16 @@ function inverseOrientFloat32(data, dims, perm, flip, origDims) {
   return result;
 }
 
+function shouldUseZYXModelAxisOrder(preprocessing, dims, patchSize) {
+  const modelAxisOrder = preprocessing?.modelAxisOrder;
+  if (modelAxisOrder === 'zyx') return true;
+  if (modelAxisOrder !== 'zyx-if-x-short-z-long') return false;
+
+  const [nx, , nz] = dims;
+  const [px] = Array.isArray(patchSize) ? patchSize : [];
+  return Number.isFinite(px) && nx < px && nz >= px;
+}
+
 // ==================== Model Loading ====================
 
 async function fetchModel(url, modelName, progressBase, progressSpan) {
@@ -1033,7 +1043,7 @@ async function stepInference(params) {
     };
   }
 
-  if (preprocessing.modelAxisOrder === 'zyx') {
+  if (shouldUseZYXModelAxisOrder(preprocessing, modelInputDims, patchSize)) {
     const transposed = transposeXYZToZYX(modelInputData, modelInputDims, Float32Array);
     postLog(`Reordered for ${taskId}: ${modelInputDims.join('x')} xyz -> ${transposed.dims.join('x')} zyx`);
     modelInputData = transposed.data;

@@ -39,12 +39,34 @@ Common issues it catches:
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
 - SCT Processing controls should not include explanatory copy about synthetic validation fixtures or generated task metadata.
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
-- Gray matter (`graymatter`) uses a 2D nnU-Net wrapper; keep its manifest preprocessing (`modelAxisOrder`) in sync with worker-level fixture parity against `test_data/batch_t2s_deepseg_graymatter`.
+- Gray matter (`graymatter`) uses a 2D nnU-Net wrapper with stronger connected-component cleanup; keep its manifest preprocessing (`modelAxisOrder`) and defaults in sync with worker-level fixture parity against `test_data/batch_t2s_deepseg_graymatter`.
+- Spinal cord (`spinalcord`) uses conditional model-axis preprocessing for sagittal-like volumes (`zyx-if-x-short-z-long`); keep it covered by worker/parity tests for `test_data/batch_t2_deepseg_spinalcord`.
+- UI control coverage is enforced by `npm run test:ui`; browser-generated fixture parity for critical supported tasks is enforced by `npm run test:fixtures`. Regenerate fixture outputs with `npm run test:fixtures:generate` when model preprocessing changes.
+- `batch_t2_label_vertebrae` is intentionally absent from `test_fixture_parity_outputs.cjs` — the browser webapp does not yet emit per-vertebra labels (1-11), only a binary mask. Re-add with multi-label gating once vertebral labeling lands.
+
+## Test surface
+
+| Script | What it covers |
+| --- | --- |
+| `npm run lint` | acorn syntax check on all `web/**/*.js` |
+| `npm run test:ui` | Static control-presence audit: every `index.html` interactive control is referenced in JS and assigned a coverage source |
+| `npm run test:viewer` | `ViewerController` overlay lifecycle against a fake NiiVue |
+| `npm run test:processing` | `sct-processing.js` pure-function unit tests (signal processing, segmentation utilities) |
+| `npm run test:batch:webapp` | 62 `batch_processing.sh` SCT commands → browser feature mapping |
+| `npm run test:fixtures` | Dice + foreground-ratio gates for 7 segmentation fixtures (uses checked-in `browser_output.nii.gz`) |
+| `npm run test:fixtures:generate` | Regenerates `browser_output.nii.gz` by running real ONNX inference (Node-only, no browser) |
+| `npm run test:controllers` | `FileIOController`, `DicomController`, `InferenceExecutor` against fake DOM/Worker |
+| `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager` against fake DOM |
+| `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
+| `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
+| `npm run test:server` | Dev server graceful restart |
+| `npm run test:fast` | Lint + UI + viewer + processing + batch + fixtures + controllers + UI modules (no real-inference tests) |
+| `npm test` | Full suite: `test:fast` + `test:inference:e2e` + `test:worker:protocol` + `test:server` |
 
 ## CI/CD
 
-- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion; bumps version, creates tag + GitHub release
-- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): deploys staging from `main` on push, deploys production from the latest release tag, runs JS syntax lint, downloads ONNX Runtime WASM files, deploys to GitHub Pages
-- GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files
+- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests); the `release` job only runs on green and bumps version, creates tag + GitHub release.
+- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): the `test` job runs `npm run test:fast` on every push/dispatch; `build-production` and `build-staging` depend on it. Deploys staging from `main`, production from the latest release tag, downloads ONNX Runtime WASM files, deploys to GitHub Pages.
+- GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files.
 
 <!-- SPECKIT END -->
