@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "sctStableSource": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-  "generatedAt": "2026-04-27T23:38:29Z",
+  "generatedAt": "2026-04-29T00:00:00Z",
   "tasks": [
     {
       "id": "spinalcord",
@@ -26,30 +26,10 @@
         }
       ],
       "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Spinal cord",
-          "rgba": [
-            68,
-            128,
-            255,
-            255
-          ],
-          "meaning": "Spinal cord segmentation"
-        }
-      ],
+      "labelSet": "spinalcord",
+      "supportStatus": "supported",
+      "validationStatus": "passed",
+      "validationSummary": "Converted SCT stable contrast-agnostic nnUNet package to ONNX and validated against the batch-processing fixture outputs.",
       "modelAssets": [
         {
           "id": "sct-spinalcord",
@@ -66,20 +46,39 @@
             224,
             64
           ],
+          "preprocessing": {
+            "modelAxisOrder": "zyx-if-x-short-z-long"
+          },
           "inferenceDefaults": {
             "probabilityThreshold": 0.5,
             "minComponentSize": 10,
             "testTimeAugmentation": true
           },
-          "preprocessing": {
-            "modelAxisOrder": "zyx-if-x-short-z-long"
-          },
-          "cacheKey": "spinalcord:sct-spinalcord:stable"
+          "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.5"
         }
       ],
-      "supportStatus": "supported",
-      "validationStatus": "passed",
-      "validationSummary": "Converted SCT stable contrast-agnostic nnUNet package to ONNX and validated against the batch-processing fixture outputs."
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Spinal cord",
+          "rgba": [
+            68,
+            128,
+            255,
+            255
+          ]
+        }
+      ]
     },
     {
       "id": "sc_lumbar_t2",
@@ -96,6 +95,11 @@
         }
       ],
       "outputType": "binary-mask",
+      "labelSet": "spinalcord",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -105,8 +109,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -116,26 +119,95 @@
             128,
             255,
             255
-          ],
-          "meaning": "Spinal cord segmentation"
+          ]
         }
+      ]
+    },
+    {
+      "id": "sc_epi",
+      "displayName": "Spinal cord EPI",
+      "category": "spinal-cord",
+      "description": "Spinal cord segmentation for EPI-BOLD fMRI images.",
+      "inputContrasts": [
+        "EPI"
       ],
-      "modelAssets": [
+      "requiredInputs": [
         {
-          "id": "sct-sc_lumbar_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-sc_lumbar_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "sc_lumbar_t2:sct-sc_lumbar_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
+          "role": "image",
+          "contrast": "EPI-BOLD fMRI"
         }
       ],
+      "outputType": "binary-mask",
+      "labelSet": "spinalcord",
       "supportStatus": "unsupported",
       "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Spinal cord",
+          "rgba": [
+            68,
+            128,
+            255,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sc_mouse_t1",
+      "displayName": "Mouse spinal cord T1",
+      "category": "spinal-cord",
+      "description": "Mouse spinal cord segmentation for T1-weighted data.",
+      "inputContrasts": [
+        "T1w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "mouse T1w spinal cord MRI"
+        }
+      ],
+      "outputType": "binary-mask",
+      "labelSet": "spinalcord",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Spinal cord",
+          "rgba": [
+            68,
+            128,
+            255,
+            255
+          ]
+        }
+      ]
     },
     {
       "id": "graymatter",
@@ -152,30 +224,10 @@
         }
       ],
       "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Gray matter",
-          "rgba": [
-            255,
-            184,
-            76,
-            255
-          ],
-          "meaning": "Spinal cord gray matter"
-        }
-      ],
+      "labelSet": "graymatter",
+      "supportStatus": "supported",
+      "validationStatus": "passed",
+      "validationSummary": "Converted SCT stable gray matter nnUNet package to an ONNX browser wrapper and validated against the T2star batch fixture.",
       "modelAssets": [
         {
           "id": "sct-graymatter",
@@ -200,12 +252,454 @@
             "minComponentSize": 1000,
             "testTimeAugmentation": false
           },
-          "cacheKey": "graymatter:sct-graymatter:stable"
+          "cacheKey": "graymatter:sct-graymatter:stable:app-7.1.5"
         }
       ],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Gray matter",
+          "rgba": [
+            255,
+            184,
+            76,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vertebrae",
+      "displayName": "Vertebral labeling",
+      "category": "spinal-cord",
+      "description": "Anatomical vertebral level labeling from a T2 volume and spinal cord segmentation.",
+      "inputContrasts": [
+        "T2w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "T2w spinal cord MRI"
+        },
+        {
+          "role": "segmentation",
+          "contrast": "spinal cord segmentation"
+        }
+      ],
+      "outputType": "multi-label-mask",
+      "labelSet": "vertebrae",
       "supportStatus": "supported",
       "validationStatus": "passed",
-      "validationSummary": "Converted SCT stable gray matter nnUNet package to an ONNX browser wrapper and validated against the T2star batch fixture."
+      "validationSummary": "Ports SCT C2-C3 HOG/SVM initialization and PAM50 vertebral level propagation for the browser fixture pipeline.",
+      "browserParityRequired": true,
+      "modelAssets": [],
+      "templateAssets": [
+        {
+          "id": "pam50-t2",
+          "filename": "templates/PAM50/PAM50_t2.nii.gz",
+          "sourceUrl": "https://github.com/spinalcordtoolbox/PAM50",
+          "checksum": null
+        },
+        {
+          "id": "pam50-levels",
+          "filename": "templates/PAM50/PAM50_levels.nii.gz",
+          "sourceUrl": "https://github.com/spinalcordtoolbox/PAM50",
+          "checksum": null
+        },
+        {
+          "id": "c2c3-t2-hog-svm",
+          "filename": "c2c3_disc_models/t2_model.yml",
+          "sourceUrl": "https://github.com/spinalcordtoolbox/spinalcordtoolbox",
+          "checksum": null
+        }
+      ],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Vertebral level 1",
+          "rgba": [
+            31,
+            119,
+            180,
+            255
+          ]
+        },
+        {
+          "index": 2,
+          "name": "Vertebral level 2",
+          "rgba": [
+            255,
+            127,
+            14,
+            255
+          ]
+        },
+        {
+          "index": 3,
+          "name": "Vertebral level 3",
+          "rgba": [
+            44,
+            160,
+            44,
+            255
+          ]
+        },
+        {
+          "index": 4,
+          "name": "Vertebral level 4",
+          "rgba": [
+            214,
+            39,
+            40,
+            255
+          ]
+        },
+        {
+          "index": 5,
+          "name": "Vertebral level 5",
+          "rgba": [
+            148,
+            103,
+            189,
+            255
+          ]
+        },
+        {
+          "index": 6,
+          "name": "Vertebral level 6",
+          "rgba": [
+            140,
+            86,
+            75,
+            255
+          ]
+        },
+        {
+          "index": 7,
+          "name": "Vertebral level 7",
+          "rgba": [
+            227,
+            119,
+            194,
+            255
+          ]
+        },
+        {
+          "index": 8,
+          "name": "Vertebral level 8",
+          "rgba": [
+            127,
+            127,
+            127,
+            255
+          ]
+        },
+        {
+          "index": 9,
+          "name": "Vertebral level 9",
+          "rgba": [
+            188,
+            189,
+            34,
+            255
+          ]
+        },
+        {
+          "index": 10,
+          "name": "Vertebral level 10",
+          "rgba": [
+            23,
+            190,
+            207,
+            255
+          ]
+        },
+        {
+          "index": 11,
+          "name": "Vertebral level 11",
+          "rgba": [
+            64,
+            64,
+            64,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gm_sc_7t_t2star",
+      "displayName": "Gray matter 7T T2star",
+      "category": "gray-matter",
+      "description": "Spinal cord gray matter segmentation for 7T T2star data.",
+      "inputContrasts": [
+        "T2star"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "7T T2star spinal cord MRI"
+        }
+      ],
+      "outputType": "binary-mask",
+      "labelSet": "graymatter",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Gray matter",
+          "rgba": [
+            255,
+            184,
+            76,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gm_wm_exvivo_t2",
+      "displayName": "Ex vivo gray/white matter T2",
+      "category": "gray-matter",
+      "description": "Ex vivo spinal cord gray and white matter segmentation for T2-weighted data.",
+      "inputContrasts": [
+        "T2w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "ex vivo T2w spinal cord MRI"
+        }
+      ],
+      "outputType": "multi-label-mask",
+      "labelSet": "multiclass",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Class 1",
+          "rgba": [
+            68,
+            128,
+            255,
+            255
+          ]
+        },
+        {
+          "index": 2,
+          "name": "Class 2",
+          "rgba": [
+            255,
+            184,
+            76,
+            255
+          ]
+        },
+        {
+          "index": 3,
+          "name": "Class 3",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gm_wm_mouse_t1",
+      "displayName": "Mouse gray/white matter T1",
+      "category": "gray-matter",
+      "description": "Mouse spinal cord gray and white matter segmentation for T1-weighted data.",
+      "inputContrasts": [
+        "T1w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "mouse T1w spinal cord MRI"
+        }
+      ],
+      "outputType": "multi-label-mask",
+      "labelSet": "multiclass",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Class 1",
+          "rgba": [
+            68,
+            128,
+            255,
+            255
+          ]
+        },
+        {
+          "index": 2,
+          "name": "Class 2",
+          "rgba": [
+            255,
+            184,
+            76,
+            255
+          ]
+        },
+        {
+          "index": 3,
+          "name": "Class 3",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gm_mouse_t1",
+      "displayName": "Mouse gray matter T1",
+      "category": "gray-matter",
+      "description": "Mouse spinal cord gray matter segmentation for T1-weighted data.",
+      "inputContrasts": [
+        "T1w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "mouse T1w spinal cord MRI"
+        }
+      ],
+      "outputType": "binary-mask",
+      "labelSet": "graymatter",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Gray matter",
+          "rgba": [
+            255,
+            184,
+            76,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lesion_sci_t2",
+      "displayName": "SCI lesion T2",
+      "category": "pathology",
+      "description": "Spinal cord injury lesion segmentation for T2-weighted data.",
+      "inputContrasts": [
+        "T2w"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "T2w spinal cord injury MRI"
+        }
+      ],
+      "outputType": "binary-mask",
+      "labelSet": "lesion",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Lesion",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
     },
     {
       "id": "lesion_ms",
@@ -227,6 +721,11 @@
         }
       ],
       "outputType": "binary-mask",
+      "labelSet": "lesion",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -236,8 +735,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -247,26 +745,95 @@
             66,
             120,
             255
-          ],
-          "meaning": "Spinal cord lesion"
+          ]
         }
+      ]
+    },
+    {
+      "id": "lesion_ms_axial_t2",
+      "displayName": "MS lesion axial T2",
+      "category": "pathology",
+      "description": "Multiple sclerosis lesion segmentation for axial T2-weighted data.",
+      "inputContrasts": [
+        "T2w"
       ],
-      "modelAssets": [
+      "requiredInputs": [
         {
-          "id": "sct-lesion_ms",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-lesion_ms.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "lesion_ms:sct-lesion_ms:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
+          "role": "image",
+          "contrast": "axial T2w spinal cord MRI"
         }
       ],
+      "outputType": "binary-mask",
+      "labelSet": "lesion",
       "supportStatus": "unsupported",
       "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Lesion",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lesion_ms_mp2rage",
+      "displayName": "MS lesion MP2RAGE",
+      "category": "pathology",
+      "description": "Multiple sclerosis lesion segmentation for MP2RAGE data.",
+      "inputContrasts": [
+        "MP2RAGE"
+      ],
+      "requiredInputs": [
+        {
+          "role": "image",
+          "contrast": "MP2RAGE spinal cord MRI"
+        }
+      ],
+      "outputType": "binary-mask",
+      "labelSet": "lesion",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Lesion",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
     },
     {
       "id": "tumor_edema_cavity_t1_t2",
@@ -288,6 +855,11 @@
         }
       ],
       "outputType": "multi-label-mask",
+      "labelSet": "multiclass",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Requires multi-input workflow support before browser execution can be enabled.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -297,8 +869,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -308,8 +879,7 @@
             128,
             255,
             255
-          ],
-          "meaning": "Task-defined class 1"
+          ]
         },
         {
           "index": 2,
@@ -319,8 +889,7 @@
             184,
             76,
             255
-          ],
-          "meaning": "Task-defined class 2"
+          ]
         },
         {
           "index": 3,
@@ -330,26 +899,52 @@
             66,
             120,
             255
-          ],
-          "meaning": "Task-defined class 3"
+          ]
         }
+      ]
+    },
+    {
+      "id": "tumor_t2",
+      "displayName": "Tumor T2",
+      "category": "pathology",
+      "description": "Spinal cord tumor segmentation for T2-weighted data.",
+      "inputContrasts": [
+        "T2w"
       ],
-      "modelAssets": [
+      "requiredInputs": [
         {
-          "id": "sct-tumor_edema_cavity_t1_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-tumor_edema_cavity_t1_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "tumor_edema_cavity_t1_t2:sct-tumor_edema_cavity_t1_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
+          "role": "image",
+          "contrast": "T2w spinal cord tumor MRI"
         }
       ],
+      "outputType": "binary-mask",
+      "labelSet": "lesion",
       "supportStatus": "unsupported",
       "validationStatus": "not-run",
-      "unsupportedReason": "Requires multi-input workflow support before browser execution can be enabled."
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
+      "labels": [
+        {
+          "index": 0,
+          "name": "Background",
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "Lesion",
+          "rgba": [
+            255,
+            66,
+            120,
+            255
+          ]
+        }
+      ]
     },
     {
       "id": "rootlets",
@@ -366,6 +961,11 @@
         }
       ],
       "outputType": "multi-label-mask",
+      "labelSet": "multiclass",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -375,8 +975,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -386,8 +985,7 @@
             128,
             255,
             255
-          ],
-          "meaning": "Task-defined class 1"
+          ]
         },
         {
           "index": 2,
@@ -397,8 +995,7 @@
             184,
             76,
             255
-          ],
-          "meaning": "Task-defined class 2"
+          ]
         },
         {
           "index": 3,
@@ -408,26 +1005,9 @@
             66,
             120,
             255
-          ],
-          "meaning": "Task-defined class 3"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-rootlets",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-rootlets.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "rootlets:sct-rootlets:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
+      ]
     },
     {
       "id": "spine",
@@ -445,6 +1025,11 @@
         }
       ],
       "outputType": "multi-label-mask",
+      "labelSet": "multiclass",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -454,8 +1039,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -465,8 +1049,7 @@
             128,
             255,
             255
-          ],
-          "meaning": "Task-defined class 1"
+          ]
         },
         {
           "index": 2,
@@ -476,8 +1059,7 @@
             184,
             76,
             255
-          ],
-          "meaning": "Task-defined class 2"
+          ]
         },
         {
           "index": 3,
@@ -487,630 +1069,9 @@
             66,
             120,
             255
-          ],
-          "meaning": "Task-defined class 3"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-spine",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-spine.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "spine:sct-spine:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "sc_epi",
-      "displayName": "Spinal cord EPI",
-      "category": "spinal-cord",
-      "description": "Spinal cord segmentation for EPI-BOLD fMRI images.",
-      "inputContrasts": [
-        "EPI"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "EPI-BOLD fMRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Spinal cord",
-          "rgba": [
-            68,
-            128,
-            255,
-            255
-          ],
-          "meaning": "Spinal cord segmentation"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-sc_epi",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-sc_epi.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "sc_epi:sct-sc_epi:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "sc_mouse_t1",
-      "displayName": "Mouse spinal cord T1",
-      "category": "spinal-cord",
-      "description": "Mouse spinal cord segmentation for T1-weighted data.",
-      "inputContrasts": [
-        "T1w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "mouse T1w spinal cord MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Spinal cord",
-          "rgba": [
-            68,
-            128,
-            255,
-            255
-          ],
-          "meaning": "Spinal cord segmentation"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-sc_mouse_t1",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-sc_mouse_t1.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "sc_mouse_t1:sct-sc_mouse_t1:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "gm_sc_7t_t2star",
-      "displayName": "Gray matter 7T T2star",
-      "category": "gray-matter",
-      "description": "Spinal cord gray matter segmentation for 7T T2star data.",
-      "inputContrasts": [
-        "T2star"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "7T T2star spinal cord MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Gray matter",
-          "rgba": [
-            255,
-            184,
-            76,
-            255
-          ],
-          "meaning": "Spinal cord gray matter"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-gm_sc_7t_t2star",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-gm_sc_7t_t2star.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "gm_sc_7t_t2star:sct-gm_sc_7t_t2star:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "gm_wm_exvivo_t2",
-      "displayName": "Ex vivo gray/white matter T2",
-      "category": "gray-matter",
-      "description": "Ex vivo spinal cord gray and white matter segmentation for T2-weighted data.",
-      "inputContrasts": [
-        "T2w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "ex vivo T2w spinal cord MRI"
-        }
-      ],
-      "outputType": "multi-label-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Class 1",
-          "rgba": [
-            68,
-            128,
-            255,
-            255
-          ],
-          "meaning": "Task-defined class 1"
-        },
-        {
-          "index": 2,
-          "name": "Class 2",
-          "rgba": [
-            255,
-            184,
-            76,
-            255
-          ],
-          "meaning": "Task-defined class 2"
-        },
-        {
-          "index": 3,
-          "name": "Class 3",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Task-defined class 3"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-gm_wm_exvivo_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-gm_wm_exvivo_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "gm_wm_exvivo_t2:sct-gm_wm_exvivo_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "gm_wm_mouse_t1",
-      "displayName": "Mouse gray/white matter T1",
-      "category": "gray-matter",
-      "description": "Mouse spinal cord gray and white matter segmentation for T1-weighted data.",
-      "inputContrasts": [
-        "T1w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "mouse T1w spinal cord MRI"
-        }
-      ],
-      "outputType": "multi-label-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Class 1",
-          "rgba": [
-            68,
-            128,
-            255,
-            255
-          ],
-          "meaning": "Task-defined class 1"
-        },
-        {
-          "index": 2,
-          "name": "Class 2",
-          "rgba": [
-            255,
-            184,
-            76,
-            255
-          ],
-          "meaning": "Task-defined class 2"
-        },
-        {
-          "index": 3,
-          "name": "Class 3",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Task-defined class 3"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-gm_wm_mouse_t1",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-gm_wm_mouse_t1.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "gm_wm_mouse_t1:sct-gm_wm_mouse_t1:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "gm_mouse_t1",
-      "displayName": "Mouse gray matter T1",
-      "category": "gray-matter",
-      "description": "Mouse spinal cord gray matter segmentation for T1-weighted data.",
-      "inputContrasts": [
-        "T1w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "mouse T1w spinal cord MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Gray matter",
-          "rgba": [
-            255,
-            184,
-            76,
-            255
-          ],
-          "meaning": "Spinal cord gray matter"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-gm_mouse_t1",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-gm_mouse_t1.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "gm_mouse_t1:sct-gm_mouse_t1:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "lesion_sci_t2",
-      "displayName": "SCI lesion T2",
-      "category": "pathology",
-      "description": "Spinal cord injury lesion segmentation for T2-weighted data.",
-      "inputContrasts": [
-        "T2w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "T2w spinal cord injury MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Lesion",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Spinal cord lesion"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-lesion_sci_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-lesion_sci_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "lesion_sci_t2:sct-lesion_sci_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "lesion_ms_axial_t2",
-      "displayName": "MS lesion axial T2",
-      "category": "pathology",
-      "description": "Multiple sclerosis lesion segmentation for axial T2-weighted data.",
-      "inputContrasts": [
-        "T2w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "axial T2w spinal cord MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Lesion",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Spinal cord lesion"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-lesion_ms_axial_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-lesion_ms_axial_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "lesion_ms_axial_t2:sct-lesion_ms_axial_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "lesion_ms_mp2rage",
-      "displayName": "MS lesion MP2RAGE",
-      "category": "pathology",
-      "description": "Multiple sclerosis lesion segmentation for MP2RAGE data.",
-      "inputContrasts": [
-        "MP2RAGE"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "MP2RAGE spinal cord MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Lesion",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Spinal cord lesion"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-lesion_ms_mp2rage",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-lesion_ms_mp2rage.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "lesion_ms_mp2rage:sct-lesion_ms_mp2rage:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
-    },
-    {
-      "id": "tumor_t2",
-      "displayName": "Tumor T2",
-      "category": "pathology",
-      "description": "Spinal cord tumor segmentation for T2-weighted data.",
-      "inputContrasts": [
-        "T2w"
-      ],
-      "requiredInputs": [
-        {
-          "role": "image",
-          "contrast": "T2w spinal cord tumor MRI"
-        }
-      ],
-      "outputType": "binary-mask",
-      "labels": [
-        {
-          "index": 0,
-          "name": "Background",
-          "rgba": [
-            0,
-            0,
-            0,
-            0
-          ],
-          "meaning": "Background"
-        },
-        {
-          "index": 1,
-          "name": "Lesion",
-          "rgba": [
-            255,
-            66,
-            120,
-            255
-          ],
-          "meaning": "Spinal cord lesion"
-        }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-tumor_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-tumor_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "tumor_t2:sct-tumor_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
+      ]
     },
     {
       "id": "sc_canal_t2",
@@ -1123,10 +1084,15 @@
       "requiredInputs": [
         {
           "role": "image",
-          "contrast": "T2w spinal canal MRI"
+          "contrast": "T2w"
         }
       ],
       "outputType": "binary-mask",
+      "labelSet": "spinalcord",
+      "supportStatus": "unsupported",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Not yet converted or validated for browser execution.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -1136,8 +1102,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -1147,26 +1112,9 @@
             128,
             255,
             255
-          ],
-          "meaning": "Spinal cord segmentation"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-sc_canal_t2",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-sc_canal_t2.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "sc_canal_t2:sct-sc_canal_t2:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution."
+      ]
     },
     {
       "id": "seg_sc_ms_lesion_stir_psir",
@@ -1184,6 +1132,11 @@
         }
       ],
       "outputType": "unsupported",
+      "labelSet": "lesion",
+      "supportStatus": "retired",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Retired by SCT stable; use lesion_ms instead.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -1193,37 +1146,19 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
-          "name": "Spinal cord",
+          "name": "Lesion",
           "rgba": [
-            68,
-            128,
             255,
+            66,
+            120,
             255
-          ],
-          "meaning": "Spinal cord segmentation"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-seg_sc_ms_lesion_stir_psir",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-seg_sc_ms_lesion_stir_psir.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "seg_sc_ms_lesion_stir_psir:sct-seg_sc_ms_lesion_stir_psir:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "retired",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Retired by SCT stable; use lesion_ms instead."
+      ]
     },
     {
       "id": "ms_sc_mp2rage",
@@ -1240,6 +1175,11 @@
         }
       ],
       "outputType": "unsupported",
+      "labelSet": "spinalcord",
+      "supportStatus": "retired",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Retired by SCT stable; use spinalcord instead.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -1249,8 +1189,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -1260,26 +1199,9 @@
             128,
             255,
             255
-          ],
-          "meaning": "Spinal cord segmentation"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-ms_sc_mp2rage",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-ms_sc_mp2rage.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "ms_sc_mp2rage:sct-ms_sc_mp2rage:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "retired",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Retired by SCT stable; use spinalcord instead."
+      ]
     },
     {
       "id": "sc_t2star",
@@ -1292,10 +1214,15 @@
       "requiredInputs": [
         {
           "role": "image",
-          "contrast": "T2star spinal cord MRI"
+          "contrast": "T2star"
         }
       ],
       "outputType": "unsupported",
+      "labelSet": "spinalcord",
+      "supportStatus": "retired",
+      "validationStatus": "not-run",
+      "unsupportedReason": "Retired by SCT stable; use spinalcord or sc_epi depending on data.",
+      "modelAssets": [],
       "labels": [
         {
           "index": 0,
@@ -1305,8 +1232,7 @@
             0,
             0,
             0
-          ],
-          "meaning": "Background"
+          ]
         },
         {
           "index": 1,
@@ -1316,26 +1242,9 @@
             128,
             255,
             255
-          ],
-          "meaning": "Spinal cord segmentation"
+          ]
         }
-      ],
-      "modelAssets": [
-        {
-          "id": "sct-sc_t2star",
-          "sourceUrl": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-          "sourceVersion": "stable",
-          "sourceFormat": "SCT model package",
-          "browserFormat": "onnx",
-          "filename": "sct-sc_t2star.onnx",
-          "conversionStatus": "failed",
-          "cacheKey": "sc_t2star:sct-sc_t2star:stable",
-          "failureReason": "No staged ONNX file was available for browser packaging."
-        }
-      ],
-      "supportStatus": "retired",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Retired by SCT stable; use spinalcord or sc_epi depending on data."
+      ]
     }
   ]
 }

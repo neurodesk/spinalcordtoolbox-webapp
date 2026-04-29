@@ -90,6 +90,7 @@ class SpinalCordToolboxApp {
 
     // Register colormap after viewer is ready
     this.viewerController.registerSctColormap(colormapData, this.getSelectedColormapId());
+    this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
 
     this.setupEventListeners();
     this.populateTaskSelector();
@@ -791,6 +792,22 @@ class SpinalCordToolboxApp {
     const select = document.getElementById('processingOperationSelect');
     const output = document.getElementById('processingOutput');
     const operation = select?.value || 'centerline';
+    if (operation === 'vertebrae') {
+      if (!this.inferenceExecutor.hasResult('segmentation')) {
+        this.updateOutput('Run spinal cord segmentation before vertebral labeling');
+        return;
+      }
+      const modelBaseUrl = new URL(Config.MODEL_BASE_URL, window.location.href).href;
+      if (output) output.textContent = '';
+      this.beginAbortableStep('processing');
+      this.setStepRunning('processing');
+      this.inferenceExecutor.runVertebralLabeling({
+        modelBaseUrl,
+        scaleDist: 0.55,
+        detectorMinScore: 0.1
+      }).catch(error => this.onInferenceError(error.message));
+      return;
+    }
     const SCT = globalThis.SCTProcessing;
     if (!SCT) {
       this.updateOutput('SCT processing utilities are not available');
@@ -1038,7 +1055,9 @@ class SpinalCordToolboxApp {
 
   applyDefaultBaseColormap() {
     const colormapSelect = document.getElementById('colormapSelect');
-    const colormap = colormapSelect?.value || 'gray';
+    const colormap = this.currentResultTab === 'vertebrae'
+      ? 'sct-vertebrae'
+      : (colormapSelect?.value || 'gray');
     if (!this.nv.volumes?.length) return;
     this.nv.volumes[0].colormap = colormap;
     this.nv.updateGLVolume();
@@ -1165,6 +1184,9 @@ class SpinalCordToolboxApp {
     if (data.stage !== 'segmentation') {
       const result = this.inferenceExecutor.getResult(data.stage);
       if (result?.file) {
+        if (data.stage === 'vertebrae') {
+          this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
+        }
         this.currentResultTab = data.stage;
         this._inputVisible = true;
         await this.renderViewerVolumes();

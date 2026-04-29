@@ -46,7 +46,8 @@ export const PROGRESS_CONFIG = {
 
 export const STAGE_NAMES = {
   'input': 'Input',
-  'segmentation': 'SCT Segmentation'
+  'segmentation': 'SCT Segmentation',
+  'vertebrae': 'Vertebral Labels'
 };
 
 export const ONNX_CONFIG = {

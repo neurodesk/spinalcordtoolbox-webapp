@@ -25,6 +25,22 @@ done
 
 echo "Done. Files saved to wasm/"
 
+# Vertebral labeling assets
+PAM50_BASE="https://raw.githubusercontent.com/spinalcordtoolbox/PAM50/master/template"
+mkdir -p "$SCRIPT_DIR/models/templates/PAM50"
+echo "Downloading PAM50 vertebral labeling assets..."
+for f in PAM50_t2.nii.gz PAM50_levels.nii.gz info_label.txt; do
+  echo "  $f"
+  curl -sL -o "$SCRIPT_DIR/models/templates/PAM50/$f" "$PAM50_BASE/$f"
+done
+
+mkdir -p "$SCRIPT_DIR/models/c2c3_disc_models"
+SCT_DATA_BASE="https://raw.githubusercontent.com/spinalcordtoolbox/spinalcordtoolbox/master/data/c2c3_disc_models"
+for f in t1_model.yml t2_model.yml; do
+  echo "  $f"
+  curl -sL -o "$SCRIPT_DIR/models/c2c3_disc_models/$f" "$SCT_DATA_BASE/$f"
+done
+
 echo ""
 echo "Note: SCT task metadata is recorded in: $SCRIPT_DIR/models/manifest.json"
 echo "      Browser-runnable SCT model assets must be converted and validated before tasks are enabled."

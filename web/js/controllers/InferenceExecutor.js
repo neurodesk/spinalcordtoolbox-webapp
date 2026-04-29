@@ -36,7 +36,8 @@ export class InferenceExecutor {
     // Step status tracking
     this.stepStatus = {
       load: 'pending',
-      inference: 'pending'
+      inference: 'pending',
+      processing: 'pending'
     };
     this.volumeInfo = null;
   }
@@ -312,12 +313,25 @@ export class InferenceExecutor {
     this.worker.postMessage({ type: 'run-inference', data: settings });
   }
 
+  async runVertebralLabeling(settings = {}) {
+    await this.initialize();
+    if (!this.pendingAbortCheckpoint || this.pendingAbortCheckpoint.step !== 'processing') {
+      this.captureCheckpoint('processing');
+    }
+    this.running = true;
+    this.currentRunningStep = 'processing';
+    this.currentTaskId = 'vertebrae';
+    this.stepStatus.processing = 'running';
+    this.worker.postMessage({ type: 'run-vertebral-labeling', data: settings });
+  }
+
   async resetWorkerState() {
     await this.initialize();
     this.worker.postMessage({ type: 'reset-state' });
     this.stepStatus = {
       load: 'pending',
-      inference: 'pending'
+      inference: 'pending',
+      processing: 'pending'
     };
     this.volumeInfo = null;
     this.results = {};
@@ -412,7 +426,7 @@ export class InferenceExecutor {
 
   // Reset downstream steps when a step is re-run
   resetDownstream(fromStep) {
-    const steps = ['load', 'inference'];
+    const steps = ['load', 'inference', 'processing'];
     const idx = steps.indexOf(fromStep);
     if (idx < 0) return;
     for (let i = idx + 1; i < steps.length; i++) {

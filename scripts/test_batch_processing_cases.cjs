@@ -29,6 +29,7 @@ const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js')
 const executorJs = fs.readFileSync(path.join(ROOT, 'web/js/controllers/InferenceExecutor.js'), 'utf8');
 const workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
 const processingJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/sct-processing.js'), 'utf8');
+const vertebraeJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/vertebrae.js'), 'utf8');
 const batchScript = fs.readFileSync(path.join(ROOT, 'test_data/batch_processing.sh'), 'utf8');
 
 const WEBAPP_PIPELINE_FEATURES = Object.freeze({
@@ -44,8 +45,8 @@ const WEBAPP_PIPELINE_FEATURES = Object.freeze({
   },
   processing: {
     controls: ['stepProcessingSection', 'processingOperationSelect', 'runProcessingBtn', 'processingOutput'],
-    workerMessages: [],
-    labels: ['SCT Processing', 'Centerline + mask + crop', 'Morphometry CSV', 'MTR / MTsat maps', 'dMRI split + DTI metrics']
+    workerMessages: ['run-vertebral-labeling'],
+    labels: ['SCT Processing', 'Vertebral labeling', 'Centerline + mask + crop', 'Morphometry CSV', 'MTR / MTsat maps', 'dMRI split + DTI metrics']
   },
   results: {
     controls: ['resultsSection', 'stageButtons', 'downloadCurrentVolume', 'screenshotViewer', 'overlayOpacity'],
@@ -68,7 +69,7 @@ const BROWSER_LIBRARY_FEATURES = Object.freeze({
   qcReport: ['createQcReportHtml'],
   sampleDataDownload: ['getSctExampleDataManifest'],
   modelInstall: ['getBrowserModelInstallPlan'],
-  vertebralLabeling: ['labelVertebraeFromSegmentation'],
+  vertebralLabeling: ['labelVertebrae'],
   templateRegistration: ['registerByCenterOfMass', 'applyTranslation', 'warpTemplate'],
   pmjDetection: ['detectPmj'],
   flattening: ['flattenSagittal'],
@@ -97,7 +98,10 @@ function assertBrowserLibraryFeature(featureName) {
   const functionNames = BROWSER_LIBRARY_FEATURES[featureName];
   assert.ok(functionNames, `known browser library feature: ${featureName}`);
   for (const functionName of functionNames) {
-    assert.ok(processingJs.includes(`function ${functionName}`), `sct-processing implements ${functionName}`);
+    assert.ok(
+      processingJs.includes(`function ${functionName}`) || vertebraeJs.includes(`function ${functionName}`),
+      `browser modules implement ${functionName}`
+    );
   }
 }
 

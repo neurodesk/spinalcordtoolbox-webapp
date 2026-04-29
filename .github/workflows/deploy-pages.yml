@@ -56,10 +56,16 @@ jobs:
           min_size_bytes = 100_000
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
-          for path in sorted(Path("web/models").glob("*.onnx")):
+          asset_paths = list(Path("web/models").glob("*.onnx"))
+          asset_paths += [
+              Path("web/models/templates/PAM50/PAM50_t2.nii.gz"),
+              Path("web/models/templates/PAM50/PAM50_levels.nii.gz"),
+          ]
+
+          for path in sorted(asset_paths):
               data = path.read_bytes()
               if data.startswith(lfs_pointer_prefix):
-                  raise SystemExit(f"{path} is a Git LFS pointer, not a model binary")
+                  raise SystemExit(f"{path} is a Git LFS pointer, not a deployed binary")
               if len(data) <= min_size_bytes:
                   raise SystemExit(f"{path} is unexpectedly small: {len(data)} bytes")
           PY
@@ -104,10 +110,16 @@ jobs:
           min_size_bytes = 100_000
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
-          for path in sorted(Path("web/models").glob("*.onnx")):
+          asset_paths = list(Path("web/models").glob("*.onnx"))
+          asset_paths += [
+              Path("web/models/templates/PAM50/PAM50_t2.nii.gz"),
+              Path("web/models/templates/PAM50/PAM50_levels.nii.gz"),
+          ]
+
+          for path in sorted(asset_paths):
               data = path.read_bytes()
               if data.startswith(lfs_pointer_prefix):
-                  raise SystemExit(f"{path} is a Git LFS pointer, not a model binary")
+                  raise SystemExit(f"{path} is a Git LFS pointer, not a deployed binary")
               if len(data) <= min_size_bytes:
                   raise SystemExit(f"{path} is unexpectedly small: {len(data)} bytes")
           PY

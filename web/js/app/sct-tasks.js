@@ -18,6 +18,20 @@ export const SCT_LABELS = Object.freeze({
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'No gray matter' },
     { index: 1, name: 'Gray matter', color: [255, 184, 76, 255], meaning: 'Spinal cord gray matter' }
   ],
+  vertebrae: [
+    { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'Background' },
+    { index: 1, name: 'Vertebral level 1', color: [31, 119, 180, 255], meaning: 'Vertebral level 1' },
+    { index: 2, name: 'Vertebral level 2', color: [255, 127, 14, 255], meaning: 'Vertebral level 2' },
+    { index: 3, name: 'Vertebral level 3', color: [44, 160, 44, 255], meaning: 'Vertebral level 3' },
+    { index: 4, name: 'Vertebral level 4', color: [214, 39, 40, 255], meaning: 'Vertebral level 4' },
+    { index: 5, name: 'Vertebral level 5', color: [148, 103, 189, 255], meaning: 'Vertebral level 5' },
+    { index: 6, name: 'Vertebral level 6', color: [140, 86, 75, 255], meaning: 'Vertebral level 6' },
+    { index: 7, name: 'Vertebral level 7', color: [227, 119, 194, 255], meaning: 'Vertebral level 7' },
+    { index: 8, name: 'Vertebral level 8', color: [127, 127, 127, 255], meaning: 'Vertebral level 8' },
+    { index: 9, name: 'Vertebral level 9', color: [188, 189, 34, 255], meaning: 'Vertebral level 9' },
+    { index: 10, name: 'Vertebral level 10', color: [23, 190, 207, 255], meaning: 'Vertebral level 10' },
+    { index: 11, name: 'Vertebral level 11', color: [64, 64, 64, 255], meaning: 'Vertebral level 11' }
+  ],
   lesion: [
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'No lesion' },
     { index: 1, name: 'Lesion', color: [255, 66, 120, 255], meaning: 'Spinal cord lesion' }
@@ -140,6 +154,44 @@ export const SCT_TASKS = [
           minComponentSize: 1000,
           testTimeAugmentation: false
         }
+      }
+    ]
+  },
+  {
+    id: 'vertebrae',
+    displayName: 'Vertebral labeling',
+    category: 'spinal-cord',
+    description: 'Anatomical vertebral level labeling from a T2 volume and spinal cord segmentation.',
+    inputContrasts: ['T2w'],
+    requiredInputs: [
+      { role: 'image', contrast: 'T2w spinal cord MRI' },
+      { role: 'segmentation', contrast: 'spinal cord segmentation' }
+    ],
+    outputType: 'multi-label-mask',
+    labelSet: 'vertebrae',
+    supportStatus: TASK_STATUS.SUPPORTED,
+    validationStatus: 'passed',
+    validationSummary: 'Ports SCT C2-C3 HOG/SVM initialization and PAM50 vertebral level propagation for the browser fixture pipeline.',
+    browserParityRequired: true,
+    modelAssets: [],
+    templateAssets: [
+      {
+        id: 'pam50-t2',
+        filename: 'templates/PAM50/PAM50_t2.nii.gz',
+        sourceUrl: 'https://github.com/spinalcordtoolbox/PAM50',
+        checksum: null
+      },
+      {
+        id: 'pam50-levels',
+        filename: 'templates/PAM50/PAM50_levels.nii.gz',
+        sourceUrl: 'https://github.com/spinalcordtoolbox/PAM50',
+        checksum: null
+      },
+      {
+        id: 'c2c3-t2-hog-svm',
+        filename: 'c2c3_disc_models/t2_model.yml',
+        sourceUrl: 'https://github.com/spinalcordtoolbox/spinalcordtoolbox',
+        checksum: null
       }
     ]
   },

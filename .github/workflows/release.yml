@@ -15,6 +15,9 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    outputs:
+      failed_tests: ${{ steps.test_failure_summary.outputs.failed_tests }}
+      failure_count: ${{ steps.test_failure_summary.outputs.failure_count }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,7 +41,23 @@ jobs:
           bash setup.sh
 
       - name: Run full test suite (lint, parity, controllers, UI, worker e2e + protocol)
-        run: npm test
+        id: full_test_suite
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee "${RUNNER_TEMP}/npm-test.log"
+          status="${PIPESTATUS[0]}"
+          echo "log_path=${RUNNER_TEMP}/npm-test.log" >> "$GITHUB_OUTPUT"
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Summarize failed tests
+        id: test_failure_summary
+        if: failure() && steps.full_test_suite.outcome == 'failure'
+        env:
+          TEST_EXIT_CODE: ${{ steps.full_test_suite.outputs.exit_code }}
+          TEST_LOG_PATH: ${{ steps.full_test_suite.outputs.log_path }}
+        run: node scripts/summarize_test_failures.cjs "$TEST_LOG_PATH" | tee "$GITHUB_STEP_SUMMARY"
 
   release:
     needs: validate

@@ -45,10 +45,11 @@ Common issues it catches:
 - SCT Processing controls should not include explanatory copy about synthetic validation fixtures or generated task metadata.
 - Run `python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks` after SCT manifest changes
 - Gray matter (`graymatter`) uses a 2D nnU-Net wrapper with stronger connected-component cleanup; keep its preprocessing (`modelAxisOrder: 'zyx'`) and defaults (`minComponentSize: 1000`) in sync across `web/js/app/sct-tasks.js` AND `web/models/manifest.json` — the runtime reads `sct-tasks.js`, so missing fields there silently disable axis reordering and produce empty/near-empty masks.
-- Spinal cord (`spinalcord`) uses conditional model-axis preprocessing for sagittal-like volumes (`zyx-if-x-short-z-long`); keep it covered by worker/parity tests for `test_data/batch_t2_deepseg_spinalcord`.
+- Spinal cord (`spinalcord`) preprocesses every input by resampling to `targetSpacing: [0.8958333, 0.7, 1.0]` (RAS xyz mm; the nnUNet `3d_fullres` plan ships `[1.0, 0.7, 0.8958]` in SI/AP/RL order, which matches after the `modelAxisOrder: 'zyx'` transpose) before inference. Without resampling, anisotropic axial inputs (e.g. MT 0.9×0.9×5 mm) feed the wrong physical scale and produce empty masks; keep both the targetSpacing AND the zyx axis order synced across `web/js/app/sct-tasks.js` and `web/models/manifest.json`. Covered by parity fixtures for the T2, dMRI, T2s, T1, and MT spinal cord cases.
+- Vertebral labeling (`vertebrae`) is a post-segmentation browser step for T2 volumes. It ports SCT's C2-C3 OpenCV HOG/SVM YAML detector in JS and propagates PAM50 vertebral level distances; keep `web/models/c2c3_disc_models/*.yml`, `web/models/templates/PAM50/PAM50_levels.nii.gz`, `web/js/modules/vertebrae.js`, and the `batch_t2_label_vertebrae` multilabel parity gate in sync.
 - UI control coverage is enforced by `npm run test:ui`; browser-generated fixture parity for critical supported tasks is enforced by `npm run test:fixtures`. Regenerate fixture outputs with `npm run test:fixtures:generate` when model preprocessing changes.
 - Docker-generated SCT test fixtures must leave `test_data` writable by the host runner so browser fixture output generation can create `browser_output.nii.gz` in CI.
-- `batch_t2_label_vertebrae` is intentionally absent from `test_fixture_parity_outputs.cjs` — the browser webapp does not yet emit per-vertebra labels (1-11), only a binary mask. Re-add with multi-label gating once vertebral labeling lands.
+- `batch_t2_label_vertebrae` is included in `test_fixture_parity_outputs.cjs` with multilabel Dice gating; do not replace it with a binary foreground-only gate.
 
 ## Test surface
 
@@ -59,11 +60,13 @@ Common issues it catches:
 | `npm run test:ui` | Static control-presence audit: every `index.html` interactive control is referenced in JS and assigned a coverage source |
 | `npm run test:viewer` | `ViewerController` overlay lifecycle against a fake NiiVue |
 | `npm run test:processing` | `sct-processing.js` pure-function unit tests (signal processing, segmentation utilities) |
+| `npm run test:vertebrae` | Vertebral labeling unit and fixture-focused checks: OpenCV HOG/SVM YAML parsing, PAM50 distance propagation, and multilabel Dice on `batch_t2_label_vertebrae` |
 | `npm run test:batch:webapp` | 62 `batch_processing.sh` SCT commands → browser feature mapping |
-| `npm run test:fixtures` | Dice + foreground-ratio gates for 7 segmentation fixtures; generates missing SCT batch references with `vnmd/spinalcordtoolbox_7.1:20260428` and missing `browser_output.nii.gz` files with real ONNX inference |
+| `npm run test:fixtures` | Dice + foreground-ratio gates for segmentation fixtures plus multilabel vertebrae parity; generates missing SCT batch references with `vnmd/spinalcordtoolbox_7.1:20260428` and missing/stale `browser_output.nii.gz` files with real ONNX inference |
 | `npm run test:fixtures:generate` | Regenerates `browser_output.nii.gz` by running real ONNX inference (Node-only, no browser) |
 | `npm run test:controllers` | `FileIOController`, `DicomController`, `InferenceExecutor` against fake DOM/Worker |
 | `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager` against fake DOM |
+| `npm run test:ci-summary` | Release-workflow test log summarizer used to publish failed npm script/test details in GitHub Actions summaries |
 | `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
 | `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
 | `npm run test:server` | Dev server graceful restart |
@@ -72,7 +75,7 @@ Common issues it catches:
 
 ## CI/CD
 
-- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests); the `release` job only runs on green and bumps version, creates tag + GitHub release.
+- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests), captures failed-test details in the Actions step summary/job outputs, and the `release` job only runs on green and bumps version, creates tag + GitHub release.
 - **Deploy workflow** (`.github/workflows/deploy-pages.yml`): deploys staging from `main` immediately on pushes to `main`, and deploys production from the latest release tag after the manual release workflow completes successfully. It downloads ONNX Runtime WASM files and verifies model assets before deploying to GitHub Pages; tests are run by the release workflow, not the deploy workflow.
 - GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files.
 

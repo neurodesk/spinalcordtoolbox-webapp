@@ -17,6 +17,7 @@ const ort = require('onnxruntime-node');
 const fixtures = require('./batch-parity-fixtures.cjs');
 const { loadNifti, compareNiftiOutputs } = require('./batch-parity-lib.cjs');
 const pipeline = require(path.resolve(__dirname, '../web/js/inference-pipeline.js'));
+const vertebrae = require(path.resolve(__dirname, '../web/js/modules/vertebrae.js'));
 
 const ROOT = path.resolve(__dirname, '..');
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, 'web/models/manifest.json'), 'utf8'));
@@ -99,6 +100,29 @@ function diceVsExpected(producedLabels, expectedData) {
   }
   const dice = expectedNz + producedNz ? (2 * intersection) / (expectedNz + producedNz) : 1;
   return { expectedNz, producedNz, intersection, dice };
+}
+
+function multilabelDiceVsExpected(producedLabels, expectedData) {
+  const labels = new Set();
+  for (let i = 0; i < expectedData.length; i++) {
+    const e = Math.round(expectedData[i]);
+    const p = Math.round(producedLabels[i]);
+    if (e > 0) labels.add(e);
+    if (p > 0) labels.add(p);
+  }
+  let meanDice = 0;
+  for (const label of labels) {
+    let expectedNz = 0, producedNz = 0, intersection = 0;
+    for (let i = 0; i < expectedData.length; i++) {
+      const e = Math.round(expectedData[i]) === label;
+      const p = Math.round(producedLabels[i]) === label;
+      if (e) expectedNz++;
+      if (p) producedNz++;
+      if (e && p) intersection++;
+    }
+    meanDice += expectedNz + producedNz ? (2 * intersection) / (expectedNz + producedNz) : 1;
+  }
+  return labels.size ? meanDice / labels.size : 1;
 }
 
 function resampleVolume(data, dims, srcSpacing, tgtSpacing) {
@@ -250,13 +274,30 @@ async function runCase(fixture) {
   await session.release();
 
   const restored = modelOutputToInput(result.labels, result.dims);
-  writeUint8NiftiGz(outPath, header, dims, restored.labels);
+  let outputLabels = restored.labels;
+  if (fixture.id === 'batch_t2_label_vertebrae') {
+    const labeled = await vertebrae.labelVertebrae({
+      anatomy: data,
+      segmentation: restored.labels,
+      dims,
+      c2c3ModelUrl: path.join(ROOT, 'web/models/c2c3_disc_models/t2_model.yml'),
+      pam50LevelsUrl: path.join(ROOT, 'web/models/templates/PAM50/PAM50_levels.nii.gz'),
+      scaleDist: 0.55,
+      detectorMinScore: 0.1
+    });
+    process.stderr.write(`${fixture.id}: C2-C3 z=${labeled.detected.z} score=${labeled.detected.score.toFixed(4)} fallback=${!!labeled.detected.fallback}\n`);
+    outputLabels = labeled.labels;
+  }
+  writeUint8NiftiGz(outPath, header, dims, outputLabels);
 
   const expected = loadNifti(path.join(ROOT, fixture.expectedOutputPath));
   const produced = loadNifti(outPath);
   const mismatches = compareNiftiOutputs(expected, produced, fixture.tolerancePolicy, 'browser_output.nii.gz', 'browser_output.nii.gz');
   const { expectedNz, producedNz, dice } = diceVsExpected(produced.data, expected.data);
-  return { id: fixture.id, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, threshold, taskId };
+  const multilabelDice = fixture.id === 'batch_t2_label_vertebrae'
+    ? multilabelDiceVsExpected(produced.data, expected.data)
+    : null;
+  return { id: fixture.id, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, multilabelDice, threshold, taskId };
 }
 
 (async () => {
@@ -275,6 +316,7 @@ async function runCase(fixture) {
       expectedNz: result.expectedNz,
       producedNz: result.producedNz,
       dice: Number(result.dice.toFixed(6)),
+      multilabelDice: result.multilabelDice == null ? null : Number(result.multilabelDice.toFixed(6)),
       threshold: result.threshold,
       taskId: result.taskId
     }));
