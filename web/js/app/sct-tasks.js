@@ -171,6 +171,7 @@ export const SCT_TASKS = [
     outputType: 'multi-label-mask',
     labelSet: 'vertebrae',
     supportStatus: TASK_STATUS.SUPPORTED,
+    processingOnly: true,
     validationStatus: 'passed',
     validationSummary: 'Ports SCT C2-C3 HOG/SVM initialization and PAM50 vertebral level propagation for the browser fixture pipeline.',
     browserParityRequired: true,

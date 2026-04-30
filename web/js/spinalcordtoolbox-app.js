@@ -277,6 +277,7 @@ class SpinalCordToolboxApp {
     modelSelect.innerHTML = '';
     for (const task of SCT_TASKS) {
       if (!isTaskRunnable(task)) continue;
+      if (task.processingOnly) continue;
       const option = document.createElement('option');
       option.value = task.id;
       option.textContent = task.displayName;
@@ -754,6 +755,12 @@ class SpinalCordToolboxApp {
 
     if (!isTaskRunnable(selectedTask)) {
       this.updateOutput(`SCT task "${selectedTask.displayName}" is unavailable.`);
+      this.updateTaskDetails();
+      return;
+    }
+
+    if (selectedTask.processingOnly || !selectedAsset) {
+      this.updateOutput(`SCT task "${selectedTask.displayName}" is a post-processing step. Run it from the SCT Processing section after a segmentation completes.`);
       this.updateTaskDetails();
       return;
     }

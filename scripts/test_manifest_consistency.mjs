@@ -31,7 +31,7 @@ assert.deepEqual(liveIds, manifestIds, `Task ID set differs.\n  manifest.json on
 // Per-task fields that must match. We only check fields that the runtime uses
 // for inference; UI-only labels/descriptions are derived in sct-tasks.js and
 // rebuilt in the manifest, so we don't enforce strict equality on those.
-const TASK_FIELDS = ['supportStatus', 'validationStatus'];
+const TASK_FIELDS = ['supportStatus', 'validationStatus', 'processingOnly'];
 
 // Per-asset fields that the worker reads. Drift here causes silent runtime
 // regressions even when fixture tests (which read manifest.json) stay green.
@@ -68,6 +68,14 @@ for (const id of manifestIds) {
   // are reference metadata only. The supportStatus check above already catches
   // accidental promotions.
   if (l.supportStatus !== 'supported') continue;
+
+  // A supported task that the user can pick from the segmentation dropdown must
+  // have a model asset. Without one, runInference() silently falls back to the
+  // global default model. Tasks that are post-processing only (vertebrae) opt
+  // out via processingOnly: true and are filtered from the segmentation menu.
+  if (!l.processingOnly && lAssets.length === 0) {
+    mismatches.push(`${id}: supported task has no modelAssets and is not processingOnly — segmentation dropdown would route it to the default model`);
+  }
 
   if (lAssets.length !== mAssets.length) {
     mismatches.push(`${id}: asset count differs (sct-tasks.js=${lAssets.length} manifest.json=${mAssets.length})`);
