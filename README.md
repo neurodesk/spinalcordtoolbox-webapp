@@ -101,7 +101,15 @@ Validate SCT model metadata and compare supported browser outputs against SCT st
 
 ```bash
 python scripts/validate_sct_models.py --manifest web/models/manifest.json --all-tasks
+npm run test:fixtures:download
+npm run test:fixtures
 ```
+
+The fixture download script pulls `test_data/batch_processing.sh` and each
+fixture `input.nii.gz` / `batch_output.nii.gz` pair from the Hugging Face
+dataset `sbollmann/sct-webapp-data`. Browser-generated `browser_output.nii.gz`
+files are not stored there; `npm run test:fixtures` regenerates them locally
+when needed.
 
 ## Citations
 

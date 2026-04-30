@@ -2,10 +2,12 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const vertebrae = require('../web/js/modules/vertebrae.js');
 const { loadNifti } = require('./batch-parity-lib.cjs');
+const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -33,8 +35,20 @@ const ROOT = path.resolve(__dirname, '..');
 }
 
 (async () => {
+  await ensureSctBatchFixtures(ROOT);
+  const browserOutputPath = path.join(ROOT, 'test_data/batch_t2_label_vertebrae/browser_output.nii.gz');
+  if (!fs.existsSync(browserOutputPath)) {
+    const result = spawnSync(process.execPath, [path.join(ROOT, 'scripts/run_browser_fixture_outputs.cjs')], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      env: process.env
+    });
+    if (result.error) throw result.error;
+    assert.equal(result.status, 0, 'browser fixture output generation exits successfully');
+  }
+
   const input = vertebrae.parseNifti(fs.readFileSync(path.join(ROOT, 'test_data/batch_t2_label_vertebrae/input.nii.gz')));
-  const segNifti = loadNifti(path.join(ROOT, 'test_data/batch_t2_label_vertebrae/browser_output.nii.gz'));
+  const segNifti = loadNifti(browserOutputPath);
   const segmentation = new Uint8Array(segNifti.data.length);
   for (let i = 0; i < segmentation.length; i++) segmentation[i] = segNifti.data[i] > 0 ? 1 : 0;
 

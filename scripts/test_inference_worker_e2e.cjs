@@ -20,6 +20,7 @@ const vm = require('node:vm');
 const ort = require('onnxruntime-node');
 const nifti = require(path.resolve(__dirname, '../web/nifti-js/index.js'));
 const manifest = require('../web/models/manifest.json');
+const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const WORKER_PATH = path.join(ROOT, 'web/js/inference-worker.js');
@@ -358,6 +359,7 @@ async function runWorkerCase(testCase) {
 }
 
 async function main() {
+  await ensureSctBatchFixtures(ROOT);
   const runnableCases = FIXTURE_CASES.filter(testCase => {
     const task = manifest.tasks.find(item => item.id === testCase.taskId);
     if (!task || task.supportStatus !== 'supported' || task.validationStatus !== 'passed') {

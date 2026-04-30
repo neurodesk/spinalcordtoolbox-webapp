@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const fixtures = require('./batch-parity-fixtures.cjs');
 const { loadNifti } = require('./batch-parity-lib.cjs');
-const { ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
+const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
 const manifest = require('../web/models/manifest.json');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -198,18 +198,19 @@ function ensureBrowserOutputs() {
   assert.equal(result.status, 0, 'browser fixture output generation exits successfully');
 }
 
-ensureSctBatchFixtures(ROOT);
-ensureBrowserOutputs();
+(async () => {
+  await ensureSctBatchFixtures(ROOT);
+  ensureBrowserOutputs();
 
-for (const taskId of supportedTasks) {
+  for (const taskId of supportedTasks) {
   assert.ok(
     CRITICAL_BROWSER_OUTPUTS.some(item => item.taskId === taskId),
     `supported task ${taskId} has at least one browser-output parity fixture`
   );
-}
+  }
 
-const results = [];
-for (const check of CRITICAL_BROWSER_OUTPUTS) {
+  const results = [];
+  for (const check of CRITICAL_BROWSER_OUTPUTS) {
   const fixture = fixtures.FIXTURE_CASES.find(item => item.id === check.id);
   assert.ok(fixture, `${check.id} fixture exists`);
 
@@ -231,6 +232,10 @@ for (const check of CRITICAL_BROWSER_OUTPUTS) {
   }
   assert.ok(stats.dice >= check.minDice, `${check.id}: Dice ${stats.dice.toFixed(4)} >= ${check.minDice.toFixed(4)}`);
   results.push(`${check.id}: dice=${stats.dice.toFixed(4)} expectedNz=${stats.expectedNz} producedNz=${stats.producedNz}`);
-}
+  }
 
-console.log(`Browser fixture parity passed:\n${results.join('\n')}`);
+  console.log(`Browser fixture parity passed:\n${results.join('\n')}`);
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

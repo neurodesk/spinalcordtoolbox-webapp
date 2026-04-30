@@ -6,7 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const manifest = require('../web/models/manifest.json');
 const fixtures = require('./batch-parity-fixtures.cjs');
-const { dockerBatchCommand, ensureSctBatchFixtures } = require('./sct-docker-fixtures.cjs');
+const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
 const {
   parseActiveBatchSteps,
   assertNoStaleMappings,
@@ -23,14 +23,13 @@ const {
 } = require('./batch-parity-lib.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
-ensureSctBatchFixtures(ROOT);
-const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
-const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
-const executorJs = fs.readFileSync(path.join(ROOT, 'web/js/controllers/InferenceExecutor.js'), 'utf8');
-const workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
-const processingJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/sct-processing.js'), 'utf8');
-const vertebraeJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/vertebrae.js'), 'utf8');
-const batchScript = fs.readFileSync(path.join(ROOT, 'test_data/batch_processing.sh'), 'utf8');
+let indexHtml;
+let appJs;
+let executorJs;
+let workerJs;
+let processingJs;
+let vertebraeJs;
+let batchScript;
 
 const WEBAPP_PIPELINE_FEATURES = Object.freeze({
   input: {
@@ -175,55 +174,63 @@ function assertNegativeCases() {
   }
 }
 
-function assertDockerFixtureCommandPermissions() {
-  const command = dockerBatchCommand();
-  assert.ok(command.includes('chmod -R a+rwX /outputs'), 'Docker fixture generation leaves test_data writable by the host test runner');
-}
+(async () => {
+  await ensureSctBatchFixtures(ROOT);
+  indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
+  appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
+  executorJs = fs.readFileSync(path.join(ROOT, 'web/js/controllers/InferenceExecutor.js'), 'utf8');
+  workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
+  processingJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/sct-processing.js'), 'utf8');
+  vertebraeJs = fs.readFileSync(path.join(ROOT, 'web/js/modules/vertebrae.js'), 'utf8');
+  batchScript = fs.readFileSync(path.join(ROOT, 'test_data/batch_processing.sh'), 'utf8');
 
-const steps = parseActiveBatchSteps(batchScript);
-assert.equal(steps.length, 62, 'all active SCT commands in batch_processing.sh are represented');
-assertNoStaleMappings(steps, steps);
-assertDockerFixtureCommandPermissions();
+  const steps = parseActiveBatchSteps(batchScript);
+  assert.equal(steps.length, 62, 'all active SCT commands in batch_processing.sh are represented');
+  assertNoStaleMappings(steps, steps);
 
-for (const featureName of Object.keys(WEBAPP_PIPELINE_FEATURES)) assertWebappPipelineFeature(featureName);
+  for (const featureName of Object.keys(WEBAPP_PIPELINE_FEATURES)) assertWebappPipelineFeature(featureName);
 
-const coverageResults = [];
-for (const step of steps) {
+  const coverageResults = [];
+  for (const step of steps) {
   const equivalent = classifyBatchStep(step);
   assert.notEqual(equivalent.status, 'missing-browser-equivalent', `${step.section}:${step.sourceLine} has a browser equivalent`);
   assertCoverageSurface(step, equivalent);
   coverageResults.push(validateBrowserEquivalent(step, equivalent, manifest));
-}
+  }
 
-const fixturePolicyResults = validateFixturePolicies(fixtures.FIXTURE_CASES, steps, ROOT);
-const blockingFixturePolicyResults = fixturePolicyResults.filter(result => result.status === 'fail');
-assert.deepEqual(blockingFixturePolicyResults, [], formatResults(blockingFixturePolicyResults, {
+  const fixturePolicyResults = validateFixturePolicies(fixtures.FIXTURE_CASES, steps, ROOT);
+  const blockingFixturePolicyResults = fixturePolicyResults.filter(result => result.status === 'fail');
+  assert.deepEqual(blockingFixturePolicyResults, [], formatResults(blockingFixturePolicyResults, {
   activeCommandCount: steps.length,
   coverageCount: 0,
   fixtureParityCount: 0,
   failedCount: blockingFixturePolicyResults.length,
   incompleteCount: 0
-}));
+  }));
 
-const fixtureResults = fixtures.FIXTURE_CASES.map(fixtureCase => parityResult(fixtureCase.id, 'pass', null, null, {
+  const fixtureResults = fixtures.FIXTURE_CASES.map(fixtureCase => parityResult(fixtureCase.id, 'pass', null, null, {
   input: fixtureCase.inputPath,
   expected: fixtureCase.expectedOutputPath,
   produced: 'validated-by-test:fixtures'
-}));
-const summary = generateSummary({
+  }));
+  const summary = generateSummary({
   activeCommandCount: steps.length,
   coverageResults,
   fixturePolicyResults,
   fixtureResults
+  });
+  const allResults = [...coverageResults, ...fixturePolicyResults, ...fixtureResults];
+  const failures = allResults.filter(result => result.status === 'fail');
+  assert.deepEqual(failures, [], formatResults(allResults, summary));
+  assert.equal(summary.activeCommandCount, 62);
+  assert.equal(summary.coverageCount + summary.incompleteCount, 62);
+  assert.equal(summary.fixtureParityCount, fixtures.FIXTURE_CASES.length);
+  assert.equal(summary.failedCount, 0);
+
+  assertNegativeCases();
+
+  console.log(formatResults(allResults, summary));
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
 });
-const allResults = [...coverageResults, ...fixturePolicyResults, ...fixtureResults];
-const failures = allResults.filter(result => result.status === 'fail');
-assert.deepEqual(failures, [], formatResults(allResults, summary));
-assert.equal(summary.activeCommandCount, 62);
-assert.equal(summary.coverageCount + summary.incompleteCount, 62);
-assert.equal(summary.fixtureParityCount, fixtures.FIXTURE_CASES.length);
-assert.equal(summary.failedCount, 0);
-
-assertNegativeCases();
-
-console.log(formatResults(allResults, summary));
