@@ -20,17 +20,17 @@ export const SCT_LABELS = Object.freeze({
   ],
   vertebrae: [
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'Background' },
-    { index: 1, name: 'Vertebral level 1', color: [31, 119, 180, 255], meaning: 'Vertebral level 1' },
-    { index: 2, name: 'Vertebral level 2', color: [255, 127, 14, 255], meaning: 'Vertebral level 2' },
-    { index: 3, name: 'Vertebral level 3', color: [44, 160, 44, 255], meaning: 'Vertebral level 3' },
-    { index: 4, name: 'Vertebral level 4', color: [214, 39, 40, 255], meaning: 'Vertebral level 4' },
-    { index: 5, name: 'Vertebral level 5', color: [148, 103, 189, 255], meaning: 'Vertebral level 5' },
-    { index: 6, name: 'Vertebral level 6', color: [140, 86, 75, 255], meaning: 'Vertebral level 6' },
-    { index: 7, name: 'Vertebral level 7', color: [227, 119, 194, 255], meaning: 'Vertebral level 7' },
-    { index: 8, name: 'Vertebral level 8', color: [127, 127, 127, 255], meaning: 'Vertebral level 8' },
-    { index: 9, name: 'Vertebral level 9', color: [188, 189, 34, 255], meaning: 'Vertebral level 9' },
-    { index: 10, name: 'Vertebral level 10', color: [23, 190, 207, 255], meaning: 'Vertebral level 10' },
-    { index: 11, name: 'Vertebral level 11', color: [64, 64, 64, 255], meaning: 'Vertebral level 11' }
+    { index: 1, name: 'Vertebral level 1', color: [48, 18, 59, 255], meaning: 'Vertebral level 1' },
+    { index: 2, name: 'Vertebral level 2', color: [70, 75, 174, 255], meaning: 'Vertebral level 2' },
+    { index: 3, name: 'Vertebral level 3', color: [60, 138, 222, 255], meaning: 'Vertebral level 3' },
+    { index: 4, name: 'Vertebral level 4', color: [40, 191, 215, 255], meaning: 'Vertebral level 4' },
+    { index: 5, name: 'Vertebral level 5', color: [60, 230, 160, 255], meaning: 'Vertebral level 5' },
+    { index: 6, name: 'Vertebral level 6', color: [144, 248, 91, 255], meaning: 'Vertebral level 6' },
+    { index: 7, name: 'Vertebral level 7', color: [216, 234, 53, 255], meaning: 'Vertebral level 7' },
+    { index: 8, name: 'Vertebral level 8', color: [254, 187, 43, 255], meaning: 'Vertebral level 8' },
+    { index: 9, name: 'Vertebral level 9', color: [251, 130, 38, 255], meaning: 'Vertebral level 9' },
+    { index: 10, name: 'Vertebral level 10', color: [220, 65, 22, 255], meaning: 'Vertebral level 10' },
+    { index: 11, name: 'Vertebral level 11', color: [165, 22, 11, 255], meaning: 'Vertebral level 11' }
   ],
   lesion: [
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'No lesion' },

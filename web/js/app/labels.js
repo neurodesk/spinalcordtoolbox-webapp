@@ -5,10 +5,12 @@ export const LABELS = Object.freeze([
   { index: 1, name: 'Spinal cord', color: [68, 128, 255, 255] },
 ]);
 
-/**
- * Generate a NiiVue-compatible discrete colormap LUT.
- * Returns an object { R, G, B, A, min, max } for nv.addColormap().
- */
+// NiiVue interpolates linearly between adjacent LUT stops. For discrete label
+// maps this smears one vertebra into its neighbour at sub-voxel boundaries. We
+// emit a step LUT: each label gets a stop at its integer index and another at
+// just-below the next index, holding the color flat across (i, i+1).
+const STEP_EPSILON = 1e-3;
+
 export function generateNiivueColormap(taskId = 'spinalcord') {
   const labels = [...getTaskLabels(taskId)].sort((a, b) => a.index - b.index);
   const R = [];
@@ -18,7 +20,8 @@ export function generateNiivueColormap(taskId = 'spinalcord') {
   const I = [];
   const labelNames = [];
 
-  for (const label of labels) {
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i];
     const color = label.color || label.rgba || [128, 128, 128, 255];
     R.push(color[0]);
     G.push(color[1]);
@@ -26,6 +29,17 @@ export function generateNiivueColormap(taskId = 'spinalcord') {
     A.push(color[3]);
     I.push(label.index);
     labelNames.push(label.name);
+
+    const next = labels[i + 1];
+    if (next && next.index > label.index + 1) continue;
+    if (next) {
+      R.push(color[0]);
+      G.push(color[1]);
+      B.push(color[2]);
+      A.push(color[3]);
+      I.push(next.index - STEP_EPSILON);
+      labelNames.push('');
+    }
   }
 
   return {

@@ -40,6 +40,7 @@ class SpinalCordToolboxApp {
     this._inputVisible = true;
     this._overlaySliderValue = 0.7;
     this._segmentationVisible = true;
+    this._overlayStage = 'segmentation';
     this._lastLocationData = null;
     this.selectedTask = getDefaultTask();
 
@@ -137,7 +138,10 @@ class SpinalCordToolboxApp {
     const labelIndex = Math.round(rawValue);
     if (labelIndex <= 0) return '';
 
-    return getLabelName(labelIndex, this.selectedTask?.id || DEFAULT_TASK_ID);
+    const taskId = this._overlayStage === 'vertebrae'
+      ? 'vertebrae'
+      : (this.selectedTask?.id || DEFAULT_TASK_ID);
+    return getLabelName(labelIndex, taskId);
   }
 
   // ==================== Event Listeners ====================
@@ -603,6 +607,7 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     this._inputVisible = true;
     this._segmentationVisible = true;
+    this._overlayStage = 'segmentation';
     this._overlaySliderValue = 0.7;
     this._lastLocationData = null;
 
@@ -632,6 +637,7 @@ class SpinalCordToolboxApp {
       currentResultTab: this.currentResultTab || 'input',
       inputVisible: this._inputVisible,
       segmentationVisible: this._segmentationVisible,
+      overlayStage: this._overlayStage,
       overlaySliderValue: this._overlaySliderValue
     };
   }
@@ -701,6 +707,7 @@ class SpinalCordToolboxApp {
 
     this.currentResultTab = checkpoint?.currentResultTab || 'input';
     this._segmentationVisible = checkpoint?.segmentationVisible ?? true;
+    this._overlayStage = checkpoint?.overlayStage || 'segmentation';
     this._overlaySliderValue = checkpoint?.overlaySliderValue ?? 0.5;
 
     this.rebuildResultsList();
@@ -768,9 +775,13 @@ class SpinalCordToolboxApp {
     const modelBaseUrl = new URL(Config.MODEL_BASE_URL, window.location.href).href;
     this.beginAbortableStep('inference');
 
-    // Clear previous results
+    // Clear previous results — including any vertebrae mask, which is derived
+    // from the previous segmentation and would otherwise be auto-rendered as a
+    // stale overlay on the new run.
     this.inferenceExecutor.clearResults();
     this.disableAllResultTabs();
+    this._overlayStage = 'segmentation';
+    await this.renderViewerVolumes();
 
     this.setStepRunning('inference');
     await this.inferenceExecutor.runInference({
@@ -969,6 +980,8 @@ class SpinalCordToolboxApp {
     // Reset results
     this.inferenceExecutor.clearResults();
     this.disableAllResultTabs();
+    this._overlayStage = 'segmentation';
+    this._segmentationVisible = true;
 
     const resultsSection = document.getElementById('resultsSection');
     if (resultsSection) {
@@ -1186,31 +1199,26 @@ class SpinalCordToolboxApp {
       resultsSection.classList.remove('collapsed');
     }
 
-    // For non-segmentation stages, make the new result the base volume and
-    // preserve any visible segmentation as a managed overlay.
-    if (data.stage !== 'segmentation') {
+    if (this.isOverlayStage(data.stage)) {
+      if (data.stage === 'vertebrae') {
+        this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
+      }
+      this._overlayStage = data.stage;
+      this._segmentationVisible = true;
+      this._inputVisible = true;
+      const overlayControl = document.getElementById('overlayControl');
+      if (overlayControl) overlayControl.classList.remove('hidden');
+      await this.renderViewerVolumes();
+    } else {
       const result = this.inferenceExecutor.getResult(data.stage);
       if (result?.file) {
-        if (data.stage === 'vertebrae') {
-          this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
-        }
         this.currentResultTab = data.stage;
         this._inputVisible = true;
         await this.renderViewerVolumes();
       }
     }
 
-    // Rebuild the results list with all available stages
     this.rebuildResultsList();
-
-    // Show overlay controls when segmentation arrives
-    if (data.stage === 'segmentation') {
-      const overlayControl = document.getElementById('overlayControl');
-      if (overlayControl) overlayControl.classList.remove('hidden');
-      if (this._segmentationVisible) {
-        await this.renderViewerVolumes();
-      }
-    }
   }
 
   rebuildResultsList() {
@@ -1237,13 +1245,20 @@ class SpinalCordToolboxApp {
       viewBtn.innerHTML = viewSvg;
       viewBtn.dataset.stage = stage;
 
-      if (stage === 'segmentation') {
-        // Segmentation eye toggles overlay visibility
-        viewBtn.classList.toggle('active', this._segmentationVisible);
+      if (this.isOverlayStage(stage)) {
+        // Overlay stages (segmentation, vertebrae): eye selects which overlay
+        // is active and toggles its visibility. Clicking the active overlay
+        // hides it; clicking another overlay switches to it.
+        const isActive = this._segmentationVisible && this._overlayStage === stage;
+        viewBtn.classList.toggle('active', isActive);
         viewBtn.addEventListener('click', () => {
-          this._segmentationVisible = !this._segmentationVisible;
+          if (this._overlayStage === stage && this._segmentationVisible) {
+            this._segmentationVisible = false;
+          } else {
+            this._overlayStage = stage;
+            this._segmentationVisible = true;
+          }
           void this.toggleOverlayVisibility(this._segmentationVisible);
-          viewBtn.classList.toggle('active', this._segmentationVisible);
         });
       } else {
         // Initialize active state based on what's currently displayed
@@ -1295,22 +1310,22 @@ class SpinalCordToolboxApp {
     this.syncWindowControls();
     this.applyAutoContrast();
 
-    // Re-add segmentation overlay if it exists and is visible
     if (this._segmentationVisible) {
-      const segResult = this.inferenceExecutor.getResult('segmentation');
-      if (segResult?.file) {
-        await this.viewerController.loadOverlay(segResult.file, this.getSelectedColormapId(), this._overlaySliderValue);
+      const overlayStage = this.resolveOverlayStage();
+      const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
+      if (overlayFile) {
+        await this.viewerController.loadOverlay(overlayFile, this.getOverlayColormapId(overlayStage), this._overlaySliderValue);
       }
     }
 
-    // Update active state on view buttons
     const container = document.getElementById('stageButtons');
     if (container) {
       container.querySelectorAll('.view-btn').forEach(btn => {
-        if (btn.dataset.stage === 'segmentation') {
-          btn.classList.toggle('active', this._segmentationVisible);
+        const btnStage = btn.dataset.stage;
+        if (this.isOverlayStage(btnStage)) {
+          btn.classList.toggle('active', this._segmentationVisible && this._overlayStage === btnStage);
         } else {
-          btn.classList.toggle('active', btn.dataset.stage === stage && this._inputVisible);
+          btn.classList.toggle('active', btnStage === stage && this._inputVisible);
         }
       });
     }
@@ -1318,15 +1333,38 @@ class SpinalCordToolboxApp {
 
   getCurrentBaseFile() {
     if (this.currentResultTab === 'input') return this.inputFile;
+    if (this.isOverlayStage(this.currentResultTab)) return this.inputFile;
     return this.inferenceExecutor.getResult(this.currentResultTab)?.file || this.inputFile;
   }
 
+  isOverlayStage(stage) {
+    return stage === 'segmentation' || stage === 'vertebrae';
+  }
+
+  getOverlayColormapId(stage) {
+    if (stage === 'vertebrae') return 'sct-vertebrae';
+    return this.getSelectedColormapId();
+  }
+
+  resolveOverlayStage() {
+    // No implicit fallback across stages: a missing _overlayStage result must
+    // resolve to null, never to a sibling stage. Auto-promoting a stale
+    // vertebrae result onto a new input/segmentation would silently render
+    // the wrong label mask — a correctness failure for medical label review.
+    if (this._overlayStage && this.inferenceExecutor.hasResult(this._overlayStage)) {
+      return this._overlayStage;
+    }
+    return null;
+  }
+
   async renderViewerVolumes() {
-    const segmentationFile = this.inferenceExecutor.getResult('segmentation')?.file || null;
+    const overlayStage = this.resolveOverlayStage();
+    const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
+    const overlayColormap = overlayStage ? this.getOverlayColormapId(overlayStage) : null;
 
     if (!this._inputVisible) {
-      if (this._segmentationVisible && segmentationFile) {
-        await this.viewerController.loadSegmentationAsBase(segmentationFile, this.getSelectedColormapId());
+      if (this._segmentationVisible && overlayFile) {
+        await this.viewerController.loadSegmentationAsBase(overlayFile, overlayColormap);
         this.syncWindowControls();
       } else {
         this.viewerController.clearVolumes();
@@ -1342,8 +1380,8 @@ class SpinalCordToolboxApp {
     this.syncWindowControls();
     this.applyAutoContrast();
 
-    if (this._segmentationVisible && segmentationFile) {
-      await this.viewerController.loadOverlay(segmentationFile, this.getSelectedColormapId(), this._overlaySliderValue);
+    if (this._segmentationVisible && overlayFile) {
+      await this.viewerController.loadOverlay(overlayFile, overlayColormap, this._overlaySliderValue);
     }
   }
 
@@ -1352,10 +1390,11 @@ class SpinalCordToolboxApp {
     if (!container) return;
 
     container.querySelectorAll('.view-btn').forEach(btn => {
-      if (btn.dataset.stage === 'segmentation') {
-        btn.classList.toggle('active', this._segmentationVisible);
+      const stage = btn.dataset.stage;
+      if (this.isOverlayStage(stage)) {
+        btn.classList.toggle('active', this._segmentationVisible && this._overlayStage === stage);
       } else {
-        btn.classList.toggle('active', btn.dataset.stage === this.currentResultTab && this._inputVisible);
+        btn.classList.toggle('active', stage === this.currentResultTab && this._inputVisible);
       }
     });
   }
@@ -1387,9 +1426,8 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     if (statusText) statusText.textContent = 'Ready';
 
-    // Show segmentation overlay on top of the input volume
-    const fullResult = this.inferenceExecutor.getResult('segmentation');
-    const overlayFile = fullResult?.file;
+    const overlayStage = this.resolveOverlayStage();
+    const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
     if (overlayFile) {
       await this.renderViewerVolumes();
 
@@ -1436,6 +1474,8 @@ class SpinalCordToolboxApp {
     this.disableAllResultTabs();
     this.currentResultTab = 'input';
     this._inputVisible = true;
+    this._overlayStage = 'segmentation';
+    this._segmentationVisible = true;
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
 

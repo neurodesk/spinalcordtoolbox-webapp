@@ -50,4 +50,42 @@ assert.match(appJs, /operation === 'vertebrae'[\s\S]*?hasResult\('segmentation'\
 // silently falling back to Config.MODEL.name.
 assert.match(appJs, /processingOnly\s*\|\|\s*!selectedAsset/, 'runInference must guard against processingOnly tasks and missing model assets');
 
+// Vertebrae must render as an overlay on input (not as the base volume), so
+// the user can toggle Input + Vertebral Labels independently. The viewer
+// pipeline picks the overlay file from `_overlayStage` and uses the matching
+// `sct-vertebrae` colormap.
+assert.match(appJs, /isOverlayStage\(stage\)\s*\{\s*return stage === 'segmentation' \|\| stage === 'vertebrae'/, 'isOverlayStage must include both segmentation and vertebrae');
+assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-vertebrae'/, 'getOverlayColormapId must map vertebrae to sct-vertebrae');
+assert.match(appJs, /resolveOverlayStage[\s\S]*?_overlayStage/, 'resolveOverlayStage must read _overlayStage');
+
+// resolveOverlayStage must NOT implicitly fall back to a sibling overlay
+// stage. Auto-promoting a stale vertebrae result onto a new input or new
+// segmentation would silently render the wrong label mask. Codex flagged
+// this as a high-severity correctness bug for medical label review.
+assert.doesNotMatch(
+  appJs,
+  /resolveOverlayStage\(\)\s*\{[\s\S]*?hasResult\('vertebrae'\)[\s\S]*?hasResult\('segmentation'\)[\s\S]*?\}/,
+  'resolveOverlayStage must not fall back across overlay stages — return null when _overlayStage is missing'
+);
+
+// runSegmentation must reset _overlayStage and re-render before kicking off
+// inference, so a previous vertebrae overlay is not visible during the new
+// run. clearResults / resetAllSteps must do the same.
+assert.match(appJs, /clearResults\(\);[\s\S]*?disableAllResultTabs\(\);[\s\S]*?_overlayStage = 'segmentation';[\s\S]*?renderViewerVolumes\(\)/, 'runSegmentation must reset _overlayStage and re-render before starting inference');
+
+// Reproduce the resolver semantics directly to lock the contract: the
+// resolver returns _overlayStage when its result exists, otherwise null —
+// never another stage.
+function makeResolver(overlayStage, available) {
+  return () => {
+    if (overlayStage && available.has(overlayStage)) return overlayStage;
+    return null;
+  };
+}
+assert.equal(makeResolver('segmentation', new Set(['segmentation', 'vertebrae']))(), 'segmentation');
+assert.equal(makeResolver('vertebrae', new Set(['segmentation', 'vertebrae']))(), 'vertebrae');
+assert.equal(makeResolver('segmentation', new Set(['vertebrae']))(), null, 'must NOT auto-promote vertebrae when segmentation is the chosen stage');
+assert.equal(makeResolver('vertebrae', new Set(['segmentation']))(), null, 'must NOT auto-promote segmentation when vertebrae is the chosen stage');
+assert.equal(makeResolver('segmentation', new Set())(), null);
+
 console.log(`Task routing OK: ${segmentationDropdownTasks.length} segmentation task(s) all have model assets; vertebrae is processing-only.`);
