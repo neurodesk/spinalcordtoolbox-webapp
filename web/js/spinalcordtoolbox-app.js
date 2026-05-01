@@ -39,8 +39,13 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     this._inputVisible = true;
     this._overlaySliderValue = 0.7;
-    this._segmentationVisible = true;
-    this._overlayStage = 'segmentation';
+    this._stageVisibility = {
+      input: true,
+      segmentation: true,
+      vertebrae: true
+    };
+    this._renderViewerPromise = Promise.resolve();
+    this._renderViewerRequested = false;
     this._lastLocationData = null;
     this.selectedTask = getDefaultTask();
 
@@ -124,24 +129,26 @@ class SpinalCordToolboxApp {
   }
 
   getOverlayLabelText(data) {
-    if (!this._segmentationVisible) return '';
     if (!this.nv?.volumes?.length) return '';
 
-    const overlayIndex = this._inputVisible
-      ? this.viewerController?.getOverlayIndex?.()
-      : 0;
-    if (overlayIndex === null || overlayIndex === undefined) return '';
+    const visibleLabelStages = this.getVisibleOverlayStages().slice().reverse();
+    for (const stage of visibleLabelStages) {
+      const volumeIndex = this.viewerController?.getVolumeIndexForStage?.(stage);
+      if (volumeIndex === null || volumeIndex === undefined) continue;
 
-    const rawValue = data?.values?.[overlayIndex]?.value;
-    if (!Number.isFinite(rawValue)) return '';
+      const rawValue = data?.values?.[volumeIndex]?.value;
+      if (!Number.isFinite(rawValue)) continue;
 
-    const labelIndex = Math.round(rawValue);
-    if (labelIndex <= 0) return '';
+      const labelIndex = Math.round(rawValue);
+      if (labelIndex <= 0) continue;
 
-    const taskId = this._overlayStage === 'vertebrae'
-      ? 'vertebrae'
-      : (this.selectedTask?.id || DEFAULT_TASK_ID);
-    return getLabelName(labelIndex, taskId);
+      const taskId = stage === 'vertebrae'
+        ? 'vertebrae'
+        : (this.selectedTask?.id || DEFAULT_TASK_ID);
+      return getLabelName(labelIndex, taskId);
+    }
+
+    return '';
   }
 
   // ==================== Event Listeners ====================
@@ -194,7 +201,7 @@ class SpinalCordToolboxApp {
       opacitySlider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
         this._overlaySliderValue = val;
-        if (this._segmentationVisible) {
+        if (this.getVisibleOverlayStages().length > 0) {
           this.viewerController.setOverlayOpacity(val);
         }
         const display = document.getElementById('overlayOpacityValue');
@@ -582,10 +589,10 @@ class SpinalCordToolboxApp {
   async onFileLoaded(file) {
     await this.resetForNewFile();
     this.inputFile = file;
-    this._inputVisible = true;
+    this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
-    await this.viewerController.loadBaseVolume(file);
+    await this.viewerController.loadBaseVolume(file, { stage: 'input' });
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
     this.applyAutoContrast();
@@ -606,8 +613,7 @@ class SpinalCordToolboxApp {
     this.currentRunningStep = null;
     this.abortUICheckpoint = null;
     this._inputVisible = true;
-    this._segmentationVisible = true;
-    this._overlayStage = 'segmentation';
+    this.resetStageVisibility();
     this._overlaySliderValue = 0.7;
     this._lastLocationData = null;
 
@@ -636,8 +642,7 @@ class SpinalCordToolboxApp {
       buttonsEnabled,
       currentResultTab: this.currentResultTab || 'input',
       inputVisible: this._inputVisible,
-      segmentationVisible: this._segmentationVisible,
-      overlayStage: this._overlayStage,
+      stageVisibility: { ...this._stageVisibility },
       overlaySliderValue: this._overlaySliderValue
     };
   }
@@ -706,8 +711,10 @@ class SpinalCordToolboxApp {
     }
 
     this.currentResultTab = checkpoint?.currentResultTab || 'input';
-    this._segmentationVisible = checkpoint?.segmentationVisible ?? true;
-    this._overlayStage = checkpoint?.overlayStage || 'segmentation';
+    this._stageVisibility = {
+      ...this.getDefaultStageVisibility(),
+      ...(checkpoint?.stageVisibility || {})
+    };
     this._overlaySliderValue = checkpoint?.overlaySliderValue ?? 0.5;
 
     this.rebuildResultsList();
@@ -717,13 +724,13 @@ class SpinalCordToolboxApp {
       : 'input';
     this.currentResultTab = targetStage;
 
-    this._inputVisible = checkpoint?.inputVisible ?? true;
+    this.setStageVisible('input', checkpoint?.inputVisible ?? true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
-    if (inputVisibilityToggle) inputVisibilityToggle.checked = this._inputVisible;
+    if (inputVisibilityToggle) inputVisibilityToggle.checked = this.isStageVisible('input');
 
     const opacitySlider = document.getElementById('overlayOpacity');
     if (opacitySlider) {
-      opacitySlider.disabled = !this._segmentationVisible || !this._inputVisible;
+      opacitySlider.disabled = this.getVisibleOverlayStages().length === 0;
       opacitySlider.value = String(this._overlaySliderValue);
     }
     const opacityDisplay = document.getElementById('overlayOpacityValue');
@@ -780,7 +787,7 @@ class SpinalCordToolboxApp {
     // stale overlay on the new run.
     this.inferenceExecutor.clearResults();
     this.disableAllResultTabs();
-    this._overlayStage = 'segmentation';
+    this.resetStageVisibility();
     await this.renderViewerVolumes();
 
     this.setStepRunning('inference');
@@ -809,7 +816,7 @@ class SpinalCordToolboxApp {
   runProcessingOperation() {
     const select = document.getElementById('processingOperationSelect');
     const output = document.getElementById('processingOutput');
-    const operation = select?.value || 'centerline';
+    const operation = select?.value || 'vertebrae';
     if (operation === 'vertebrae') {
       if (!this.inferenceExecutor.hasResult('segmentation')) {
         this.updateOutput('Run spinal cord segmentation before vertebral labeling');
@@ -826,66 +833,8 @@ class SpinalCordToolboxApp {
       }).catch(error => this.onInferenceError(error.message));
       return;
     }
-    const SCT = globalThis.SCTProcessing;
-    if (!SCT) {
-      this.updateOutput('SCT processing utilities are not available');
-      return;
-    }
-
-    const write = (value) => {
-      const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-      if (output) output.textContent = text;
-      this.updateOutput(`Processing ${operation} completed`);
-    };
-
-    try {
-      if (operation === 'centerline') {
-        const dims = [5, 5, 3];
-        const seg = new Uint8Array(dims[0] * dims[1] * dims[2]);
-        seg[SCT.index3D(2, 2, 0, dims)] = 1;
-        seg[SCT.index3D(1, 2, 2, dims)] = 1;
-        seg[SCT.index3D(3, 2, 2, dims)] = 1;
-        const centerline = SCT.centerlineFromSegmentation(seg, dims);
-        const mask = SCT.createCylinderMask(dims, [1, 1, 2], centerline, 1);
-        const bbox = SCT.boundingBoxFromMask(mask, dims);
-        write({ centerline, maskVoxels: mask.reduce((sum, v) => sum + v, 0), bbox });
-      } else if (operation === 'morphometry') {
-        const dims = [4, 4, 2];
-        const seg = new Uint8Array(dims[0] * dims[1] * dims[2]);
-        for (const [x, y] of [[1, 1], [2, 1], [1, 2], [2, 2]]) seg[SCT.index3D(x, y, 0, dims)] = 1;
-        write(SCT.morphometryToCsv(SCT.sliceMorphometry(seg, dims, [0.5, 0.5, 2])));
-      } else if (operation === 'mt') {
-        const dims = [1, 1, 1];
-        const mtr = SCT.computeMTR(new Float32Array([100]), new Float32Array([80]), dims);
-        const mtsat = SCT.computeMTsat(new Float32Array([900]), new Float32Array([1000]), new Float32Array([800]), dims, {
-          trMt: 0.030, trPd: 0.030, trT1: 0.015, faMt: 9, faPd: 9, faT1: 15
-        });
-        write({ mtr: Array.from(mtr), mtsat: Array.from(mtsat.mtsat), t1map: Array.from(mtsat.t1map) });
-      } else if (operation === 'dmri') {
-        const split = SCT.splitB0Dwi(new Float32Array([1, 2, 10, 20, 100, 200]), [2, 1, 1, 3], {
-          bvecs: [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
-        });
-        write({ indexB0: split.indexB0, indexDwi: split.indexDwi, b0Mean: Array.from(split.b0Mean), dwiMean: Array.from(split.dwiMean) });
-      } else if (operation === 'registration') {
-        const dims = [5, 5, 1];
-        const src = new Float32Array(25);
-        const dst = new Float32Array(25);
-        src[SCT.index3D(1, 1, 0, dims)] = 1;
-        dst[SCT.index3D(3, 2, 0, dims)] = 1;
-        write(SCT.registerByCenterOfMass(src, dims, dst, dims));
-      } else if (operation === 'metadata') {
-        write({
-          exampleData: SCT.getSctExampleDataManifest(),
-          modelPlan: SCT.getBrowserModelInstallPlan({ tasks: SCT_TASKS }, this.selectedTask.id),
-          qcPreview: SCT.createQcReportHtml([{ process: 'browser-sct-processing', input: 'fixture', output: 'passed' }]).slice(0, 160)
-        });
-      }
-      this.updateStepBadge('processing', 'complete');
-    } catch (error) {
-      this.updateStepBadge('processing', 'pending');
-      if (output) output.textContent = error.message;
-      this.updateOutput(`Processing ${operation} failed: ${error.message}`);
-    }
+    if (output) output.textContent = '';
+    this.updateOutput(`Unsupported SCT Processing operation: ${operation}`);
   }
 
   // ==================== Step UI Management ====================
@@ -980,8 +929,7 @@ class SpinalCordToolboxApp {
     // Reset results
     this.inferenceExecutor.clearResults();
     this.disableAllResultTabs();
-    this._overlayStage = 'segmentation';
-    this._segmentationVisible = true;
+    this.resetStageVisibility();
 
     const resultsSection = document.getElementById('resultsSection');
     if (resultsSection) {
@@ -1203,9 +1151,8 @@ class SpinalCordToolboxApp {
       if (data.stage === 'vertebrae') {
         this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
       }
-      this._overlayStage = data.stage;
-      this._segmentationVisible = true;
-      this._inputVisible = true;
+      this.setStageVisible(data.stage, true);
+      this.setStageVisible('input', true);
       const overlayControl = document.getElementById('overlayControl');
       if (overlayControl) overlayControl.classList.remove('hidden');
       await this.renderViewerVolumes();
@@ -1213,7 +1160,7 @@ class SpinalCordToolboxApp {
       const result = this.inferenceExecutor.getResult(data.stage);
       if (result?.file) {
         this.currentResultTab = data.stage;
-        this._inputVisible = true;
+        this.setStageVisible('input', true);
         await this.renderViewerVolumes();
       }
     }
@@ -1246,26 +1193,16 @@ class SpinalCordToolboxApp {
       viewBtn.dataset.stage = stage;
 
       if (this.isOverlayStage(stage)) {
-        // Overlay stages (segmentation, vertebrae): eye selects which overlay
-        // is active and toggles its visibility. Clicking the active overlay
-        // hides it; clicking another overlay switches to it.
-        const isActive = this._segmentationVisible && this._overlayStage === stage;
-        viewBtn.classList.toggle('active', isActive);
+        viewBtn.classList.toggle('active', this.isStageVisible(stage));
         viewBtn.addEventListener('click', () => {
-          if (this._overlayStage === stage && this._segmentationVisible) {
-            this._segmentationVisible = false;
-          } else {
-            this._overlayStage = stage;
-            this._segmentationVisible = true;
-          }
-          void this.toggleOverlayVisibility(this._segmentationVisible);
+          void this.toggleStageVisibility(stage, !this.isStageVisible(stage));
         });
       } else {
         // Initialize active state based on what's currently displayed
-        viewBtn.classList.toggle('active', this.currentResultTab === stage && this._inputVisible);
+        viewBtn.classList.toggle('active', this.currentResultTab === stage && this.isStageVisible('input'));
         // Base volume stages: toggle load/unload as base volume
         viewBtn.addEventListener('click', () => {
-          if (this.currentResultTab === stage && this._inputVisible) {
+          if (this.currentResultTab === stage && this.isStageVisible('input')) {
             // Already showing this stage — hide it
             void this.toggleInputVisibility(false);
             viewBtn.classList.remove('active');
@@ -1303,29 +1240,23 @@ class SpinalCordToolboxApp {
 
     await this.viewerController.loadBaseVolume(file);
     this.currentResultTab = stage;
-    this._inputVisible = true;
+    this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
     this.applyAutoContrast();
 
-    if (this._segmentationVisible) {
-      const overlayStage = this.resolveOverlayStage();
-      const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
-      if (overlayFile) {
-        await this.viewerController.loadOverlay(overlayFile, this.getOverlayColormapId(overlayStage), this._overlaySliderValue);
-      }
-    }
+    await this.renderViewerVolumes();
 
     const container = document.getElementById('stageButtons');
     if (container) {
       container.querySelectorAll('.view-btn').forEach(btn => {
         const btnStage = btn.dataset.stage;
         if (this.isOverlayStage(btnStage)) {
-          btn.classList.toggle('active', this._segmentationVisible && this._overlayStage === btnStage);
+          btn.classList.toggle('active', this.isStageVisible(btnStage));
         } else {
-          btn.classList.toggle('active', btnStage === stage && this._inputVisible);
+          btn.classList.toggle('active', btnStage === stage && this.isStageVisible('input'));
         }
       });
     }
@@ -1346,25 +1277,70 @@ class SpinalCordToolboxApp {
     return this.getSelectedColormapId();
   }
 
-  resolveOverlayStage() {
-    // No implicit fallback across stages: a missing _overlayStage result must
-    // resolve to null, never to a sibling stage. Auto-promoting a stale
-    // vertebrae result onto a new input/segmentation would silently render
-    // the wrong label mask — a correctness failure for medical label review.
-    if (this._overlayStage && this.inferenceExecutor.hasResult(this._overlayStage)) {
-      return this._overlayStage;
-    }
-    return null;
+  getDefaultStageVisibility() {
+    return {
+      input: true,
+      segmentation: true,
+      vertebrae: true
+    };
+  }
+
+  resetStageVisibility() {
+    this._stageVisibility = this.getDefaultStageVisibility();
+    this._inputVisible = this._stageVisibility.input;
+  }
+
+  isStageVisible(stage) {
+    if (stage === 'input') return this._inputVisible;
+    return this._stageVisibility?.[stage] ?? true;
+  }
+
+  setStageVisible(stage, visible) {
+    if (!this._stageVisibility) this.resetStageVisibility();
+    this._stageVisibility[stage] = visible;
+    if (stage === 'input') this._inputVisible = visible;
+  }
+
+  getVisibleOverlayStages() {
+    return ['segmentation', 'vertebrae'].filter(stage => (
+      this.isStageVisible(stage) && this.inferenceExecutor.hasResult(stage)
+    ));
   }
 
   async renderViewerVolumes() {
-    const overlayStage = this.resolveOverlayStage();
-    const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
-    const overlayColormap = overlayStage ? this.getOverlayColormapId(overlayStage) : null;
+    this._renderViewerRequested = true;
+    this._renderViewerPromise = this._renderViewerPromise.then(async () => {
+      if (!this._renderViewerRequested) return;
+      this._renderViewerRequested = false;
+      await this._renderViewerVolumesNow();
+    });
+    return this._renderViewerPromise;
+  }
 
-    if (!this._inputVisible) {
-      if (this._segmentationVisible && overlayFile) {
-        await this.viewerController.loadSegmentationAsBase(overlayFile, overlayColormap);
+  async _renderViewerVolumesNow() {
+    const visibleOverlayStages = this.getVisibleOverlayStages();
+
+    if (!this.isStageVisible('input')) {
+      const [baseOverlayStage, ...remainingOverlayStages] = visibleOverlayStages;
+      if (baseOverlayStage) {
+        const baseOverlayFile = this.inferenceExecutor.getResult(baseOverlayStage)?.file;
+        const stackEntries = [{
+          file: baseOverlayFile,
+          stage: baseOverlayStage,
+          colormap: this.getOverlayColormapId(baseOverlayStage),
+          labelMask: true
+        }];
+        for (const overlayStage of remainingOverlayStages) {
+          const overlayFile = this.inferenceExecutor.getResult(overlayStage)?.file;
+          stackEntries.push({
+            file: overlayFile,
+            stage: overlayStage,
+            colormap: this.getOverlayColormapId(overlayStage),
+            opacity: this._overlaySliderValue,
+            labelMask: true
+          });
+        }
+        await this.viewerController.loadVolumeStack(stackEntries);
         this.syncWindowControls();
       } else {
         this.viewerController.clearVolumes();
@@ -1375,14 +1351,26 @@ class SpinalCordToolboxApp {
     const baseFile = this.getCurrentBaseFile();
     if (!baseFile) return;
 
-    await this.viewerController.loadBaseVolume(baseFile);
+    const stackEntries = [{
+      file: baseFile,
+      stage: this.currentResultTab || 'input',
+      colormap: null
+    }];
+    for (const overlayStage of visibleOverlayStages) {
+      const overlayFile = this.inferenceExecutor.getResult(overlayStage)?.file;
+      stackEntries.push({
+        file: overlayFile,
+        stage: overlayStage,
+        colormap: this.getOverlayColormapId(overlayStage),
+        opacity: this._overlaySliderValue,
+        labelMask: true
+      });
+    }
+
+    await this.viewerController.loadVolumeStack(stackEntries);
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
     this.applyAutoContrast();
-
-    if (this._segmentationVisible && overlayFile) {
-      await this.viewerController.loadOverlay(overlayFile, overlayColormap, this._overlaySliderValue);
-    }
   }
 
   syncResultViewButtons() {
@@ -1392,15 +1380,15 @@ class SpinalCordToolboxApp {
     container.querySelectorAll('.view-btn').forEach(btn => {
       const stage = btn.dataset.stage;
       if (this.isOverlayStage(stage)) {
-        btn.classList.toggle('active', this._segmentationVisible && this._overlayStage === stage);
+        btn.classList.toggle('active', this.isStageVisible(stage));
       } else {
-        btn.classList.toggle('active', stage === this.currentResultTab && this._inputVisible);
+        btn.classList.toggle('active', stage === this.currentResultTab && this.isStageVisible('input'));
       }
     });
   }
 
   async toggleInputVisibility(visible) {
-    this._inputVisible = visible;
+    this.setStageVisible('input', visible);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = visible;
     await this.renderViewerVolumes();
@@ -1408,11 +1396,11 @@ class SpinalCordToolboxApp {
     this.updateViewerInfo(this._lastLocationData);
   }
 
-  async toggleOverlayVisibility(visible) {
-    this._segmentationVisible = visible;
+  async toggleStageVisibility(stage, visible) {
+    this.setStageVisible(stage, visible);
     const opacitySlider = document.getElementById('overlayOpacity');
     await this.renderViewerVolumes();
-    if (opacitySlider) opacitySlider.disabled = !visible || !this._inputVisible;
+    if (opacitySlider) opacitySlider.disabled = this.getVisibleOverlayStages().length === 0;
     this.syncResultViewButtons();
     this.updateViewerInfo(this._lastLocationData);
   }
@@ -1426,20 +1414,18 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     if (statusText) statusText.textContent = 'Ready';
 
-    const overlayStage = this.resolveOverlayStage();
-    const overlayFile = overlayStage ? this.inferenceExecutor.getResult(overlayStage)?.file : null;
-    if (overlayFile) {
+    if (this.getVisibleOverlayStages().length > 0) {
       await this.renderViewerVolumes();
 
       const opacitySlider = document.getElementById('overlayOpacity');
       if (opacitySlider) {
-        opacitySlider.disabled = !this._segmentationVisible || !this._inputVisible;
+        opacitySlider.disabled = this.getVisibleOverlayStages().length === 0;
         opacitySlider.value = String(this._overlaySliderValue);
       }
       const opacityDisplay = document.getElementById('overlayOpacityValue');
       if (opacityDisplay) opacityDisplay.textContent = `${Math.round(this._overlaySliderValue * 100)}%`;
       const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
-      if (inputVisibilityToggle) inputVisibilityToggle.checked = this._inputVisible;
+      if (inputVisibilityToggle) inputVisibilityToggle.checked = this.isStageVisible('input');
       this.rebuildResultsList();
     }
   }
@@ -1464,8 +1450,8 @@ class SpinalCordToolboxApp {
   disableAllResultTabs() {
     const container = document.getElementById('stageButtons');
     if (container) container.innerHTML = '';
-    this.viewerController.clearOverlay();
-    this._segmentationVisible = true;
+    this.viewerController.clearVolumes();
+    this.resetStageVisibility();
     this._overlaySliderValue = 0.7;
   }
 
@@ -1473,9 +1459,7 @@ class SpinalCordToolboxApp {
     this.inferenceExecutor.clearResults();
     this.disableAllResultTabs();
     this.currentResultTab = 'input';
-    this._inputVisible = true;
-    this._overlayStage = 'segmentation';
-    this._segmentationVisible = true;
+    this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
 

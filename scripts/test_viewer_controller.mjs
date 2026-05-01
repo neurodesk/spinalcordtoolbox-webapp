@@ -8,10 +8,13 @@ function createFakeNiivue() {
     volumes: [{ name: 'input.nii', opacity: 1 }],
     removedIndexes: [],
     opacityCalls: [],
+    loadVolumesCalls: [],
+    addVolumeFromUrlCalls: [],
     updateCount: 0,
     drawCount: 0,
     addColormap() {},
     async loadVolumes(volumes) {
+      this.loadVolumesCalls.push(volumes.map(v => ({ name: v.name, colormap: v.colormap })));
       this.volumes = volumes.map(volume => ({
         id: volume.name,
         name: volume.name,
@@ -21,6 +24,7 @@ function createFakeNiivue() {
       }));
     },
     async addVolumeFromUrl(volume) {
+      this.addVolumeFromUrlCalls.push({ name: volume.name, colormap: volume.colormap });
       this.volumes.push({
         id: volume.name,
         name: volume.name,
@@ -61,12 +65,13 @@ function makeFile(name) {
   await viewer.loadOverlay(makeFile('first_seg.nii'), 'sct-spinalcord', 0.5);
   await viewer.loadOverlay(makeFile('second_seg.nii'), 'sct-spinalcord', 0.35);
 
-  assert.equal(nv.volumes.length, 2);
+  assert.equal(nv.volumes.length, 3);
   assert.equal(nv.volumes[0].name, 'input.nii');
-  assert.equal(nv.volumes[1].name, 'second_seg.nii');
-  assert.deepEqual(nv.removedIndexes, [1]);
-  assert.deepEqual(nv.opacityCalls.at(-1), [1, 0.35]);
-  assert.equal(viewer.getOverlayIndex(), 1);
+  assert.equal(nv.volumes[1].name, 'first_seg.nii');
+  assert.equal(nv.volumes[2].name, 'second_seg.nii');
+  assert.deepEqual(nv.removedIndexes, []);
+  assert.deepEqual(nv.opacityCalls.at(-1), [2, 0.35]);
+  assert.equal(viewer.getOverlayIndex(), 2);
 }
 
 {
@@ -133,6 +138,66 @@ function makeFile(name) {
   assert.equal(nv.volumes[0].opacity, 1);
   assert.equal(nv.volumes[1].opacity, 0.45);
   assert.equal(viewer.getOverlayIndex(), 1);
+}
+
+{
+  const nv = createFakeNiivue();
+  const viewer = new ViewerController({ nv });
+  const input = makeFile('input_multi.nii');
+  const seg = makeFile('seg_multi.nii');
+  const vertebrae = makeFile('vertebrae_multi.nii');
+
+  await viewer.loadBaseVolume(input, { stage: 'input' });
+  await viewer.loadOverlay(seg, 'sct-spinalcord', 0.45, { stage: 'segmentation' });
+  await viewer.loadOverlay(vertebrae, 'sct-vertebrae', 0.45, { stage: 'vertebrae' });
+  viewer.setOverlayOpacity(0.8);
+
+  assert.equal(nv.volumes.length, 3);
+  assert.equal(nv.volumes[0].name, 'input_multi.nii');
+  assert.equal(nv.volumes[1].colormap, 'sct-spinalcord');
+  assert.equal(nv.volumes[2].colormap, 'sct-vertebrae');
+  assert.equal(nv.volumes[1].opacity, 0.8);
+  assert.equal(nv.volumes[2].opacity, 0.8);
+  assert.equal(viewer.getVolumeIndexForStage('segmentation'), 1);
+  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 2);
+}
+
+{
+  const nv = createFakeNiivue();
+  const viewer = new ViewerController({ nv });
+  const input = makeFile('input_stack.nii');
+  const seg = makeFile('seg_stack.nii');
+  const vertebrae = makeFile('vertebrae_stack.nii');
+
+  await viewer.loadVolumeStack([
+    { file: input, stage: 'input' },
+    { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true },
+    { file: vertebrae, stage: 'vertebrae', colormap: 'sct-vertebrae', opacity: 0.7, labelMask: true }
+  ]);
+
+  assert.equal(nv.volumes.length, 3);
+  assert.equal(nv.volumes[0].name, 'input_stack.nii');
+  assert.equal(nv.volumes[1].colormap, 'sct-spinalcord');
+  assert.equal(nv.volumes[2].colormap, 'sct-vertebrae');
+  assert.equal(nv.volumes[1].opacity, 0.7);
+  assert.equal(nv.volumes[2].opacity, 0.7);
+  assert.equal(viewer.getVolumeIndexForStage('input'), 0);
+  assert.equal(viewer.getVolumeIndexForStage('segmentation'), 1);
+  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 2);
+
+  // Regression: NiiVue 0.68.x silently fails to render binary/label overlays
+  // when multiple volumes are loaded in a single `loadVolumes([...])` call
+  // (the overlays end up with broken cal_min/cal_max + colormap LUT state).
+  // `loadVolumeStack` MUST therefore (1) load the base via `loadVolumes` with
+  // a single entry and (2) add each overlay via `addVolumeFromUrl`. If this
+  // is reverted, the SCT segmentation overlay disappears in the live app
+  // even though the eye toggle is on and the segmentation has voxels.
+  assert.equal(nv.loadVolumesCalls.length, 1, 'loadVolumeStack must call nv.loadVolumes exactly once (for the base)');
+  assert.equal(nv.loadVolumesCalls[0].length, 1, 'nv.loadVolumes must receive exactly one volume (the base)');
+  assert.equal(nv.loadVolumesCalls[0][0].name, 'input_stack.nii');
+  assert.equal(nv.addVolumeFromUrlCalls.length, 2, 'each overlay must be added via addVolumeFromUrl');
+  assert.equal(nv.addVolumeFromUrlCalls[0].colormap, 'sct-spinalcord');
+  assert.equal(nv.addVolumeFromUrlCalls[1].colormap, 'sct-vertebrae');
 }
 
 console.log('ViewerController tests passed');

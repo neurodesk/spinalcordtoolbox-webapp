@@ -45,7 +45,7 @@ const WEBAPP_PIPELINE_FEATURES = Object.freeze({
   processing: {
     controls: ['stepProcessingSection', 'processingOperationSelect', 'runProcessingBtn', 'processingOutput'],
     workerMessages: ['run-vertebral-labeling'],
-    labels: ['SCT Processing', 'Vertebral labeling', 'Centerline + mask + crop', 'Morphometry CSV', 'MTR / MTsat maps', 'dMRI split + DTI metrics']
+    labels: ['SCT Processing', 'Vertebral labeling']
   },
   results: {
     controls: ['resultsSection', 'stageButtons', 'downloadCurrentVolume', 'screenshotViewer', 'overlayOpacity'],

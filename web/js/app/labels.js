@@ -9,7 +9,21 @@ export const LABELS = Object.freeze([
 // maps this smears one vertebra into its neighbour at sub-voxel boundaries. We
 // emit a step LUT: each label gets a stop at its integer index and another at
 // just-below the next index, holding the color flat across (i, i+1).
-const STEP_EPSILON = 1e-3;
+//
+// IMPORTANT: NiiVue's `makeLut()` casts our `I` array through
+// `Uint8ClampedArray.from(...)` (round-half-to-even). For a binary mask
+// (spinalcord: 2 labels → max=1) the held stop sits at scaleToLutIndex(1)
+// minus this epsilon, i.e. 255-EPSILON. With EPSILON < 0.5 that rounds back
+// to 255, collapsing the held stop and the label-1 stop onto the same
+// Uint8 index. The first LUT segment (idxLo=0..idxHi=255) then interpolates
+// background→background and the trailing zero-range segment produces NaNs
+// (divide-by-zero) that Uint8ClampedArray clamps to 0 — the entire LUT
+// becomes transparent and the segmentation overlay disappears even though
+// the volume is loaded. EPSILON >= 1.0 keeps the held stop at a different
+// Uint8 bucket from the next label start. `npm run test:labels` enforces
+// the gap; the spinalcord-LUT regression case in `test_labels.mjs` confirms
+// the binary case stays visible.
+const STEP_EPSILON = 1.0;
 
 export function generateNiivueColormap(taskId = 'spinalcord') {
   const labels = [...getTaskLabels(taskId)].sort((a, b) => a.index - b.index);

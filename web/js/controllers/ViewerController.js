@@ -12,6 +12,7 @@ export class ViewerController {
     this.currentBaseFile = null;
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
+    this.volumeStageIndices = new Map();
     this.sctColormapsRegistered = new Set();
   }
 
@@ -32,7 +33,7 @@ export class ViewerController {
     this.registerSctColormap(colormapData, 'sct-spinalcord');
   }
 
-  async loadBaseVolume(file) {
+  async loadBaseVolume(file, options = {}) {
     try {
       this.updateOutput(`Loading ${file.name}...`);
       const url = URL.createObjectURL(file);
@@ -41,9 +42,50 @@ export class ViewerController {
       this.currentBaseFile = file;
       this.currentOverlayFile = null;
       this.currentOverlayIndex = null;
+      this.volumeStageIndices.clear();
+      if (options.stage) this.volumeStageIndices.set(options.stage, 0);
       this.updateOutput(`${file.name} loaded`);
     } catch (error) {
       this.updateOutput(`Error loading ${file.name}: ${error.message}`);
+      console.error(error);
+    }
+  }
+
+  async loadVolumeStack(entries) {
+    if (!entries.length) {
+      this.clearVolumes();
+      return;
+    }
+
+    // NiiVue's `loadVolumes()` with multiple volumes calls `addVolume()` per
+    // entry but the overlay paths (cal_min/cal_max, colormap LUT, opacity)
+    // are only correctly initialised when overlays go through
+    // `addVolumeFromUrl()` AFTER the base volume is already in place. We
+    // therefore reuse the proven `loadBaseVolume` + `loadOverlay` flow here
+    // so binary/label-mask overlays actually render. Replacing this with
+    // `nv.loadVolumes([...])` silently produced no visible overlay in
+    // 0.68.x — covered by `npm run test:viewer`.
+    try {
+      const [baseEntry, ...overlayEntries] = entries;
+
+      await this.loadBaseVolume(baseEntry.file, { stage: baseEntry.stage });
+
+      if (baseEntry.labelMask) {
+        this.configureSegmentationVolume(0, baseEntry.colormap || 'sct-spinalcord');
+        this.nv.updateGLVolume();
+        this.nv.drawScene?.();
+      }
+
+      for (const entry of overlayEntries) {
+        await this.loadOverlay(
+          entry.file,
+          entry.colormap || 'sct-spinalcord',
+          entry.opacity ?? 0.5,
+          { stage: entry.stage }
+        );
+      }
+    } catch (error) {
+      this.updateOutput(`Error loading viewer volumes: ${error.message}`);
       console.error(error);
     }
   }
@@ -53,6 +95,7 @@ export class ViewerController {
     this.currentBaseFile = null;
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
+    this.volumeStageIndices.clear();
     this.nv.updateGLVolume();
     this.nv.drawScene?.();
   }
@@ -88,10 +131,8 @@ export class ViewerController {
     }
   }
 
-  async loadOverlay(file, colormap = 'red', opacity = 0.5) {
+  async loadOverlay(file, colormap = 'red', opacity = 0.5, options = {}) {
     try {
-      this.clearOverlay();
-
       const url = URL.createObjectURL(file);
       await this.nv.addVolumeFromUrl({
         url: url,
@@ -111,14 +152,15 @@ export class ViewerController {
 
       this.currentOverlayFile = file;
       this.currentOverlayIndex = overlayIndex > 0 ? overlayIndex : null;
+      if (options.stage) this.volumeStageIndices.set(options.stage, overlayIndex);
     } catch (error) {
       this.updateOutput(`Error loading overlay: ${error.message}`);
       console.error(error);
     }
   }
 
-  async loadSegmentationAsBase(file, colormap = 'sct-spinalcord') {
-    await this.loadBaseVolume(file);
+  async loadSegmentationAsBase(file, colormap = 'sct-spinalcord', options = {}) {
+    await this.loadBaseVolume(file, options);
     this.configureSegmentationVolume(0, colormap);
     this.currentBaseFile = file;
     this.currentOverlayFile = null;
@@ -155,9 +197,9 @@ export class ViewerController {
   }
 
   setOverlayOpacity(value) {
-    const overlayIndex = this.getOverlayIndex();
-    if (overlayIndex !== null) {
-      this.nv.setOpacity(overlayIndex, value);
+    const overlayIndices = this.getOverlayIndices();
+    if (overlayIndices.length) {
+      overlayIndices.forEach(index => this.nv.setOpacity(index, value));
       this.nv.updateGLVolume();
     }
   }
@@ -179,6 +221,18 @@ export class ViewerController {
       return this.currentOverlayIndex;
     }
     return this.nv.volumes.length > 1 ? this.nv.volumes.length - 1 : null;
+  }
+
+  getOverlayIndices() {
+    return this.nv.volumes
+      .map((_, index) => index)
+      .filter(index => index > 0);
+  }
+
+  getVolumeIndexForStage(stage) {
+    const index = this.volumeStageIndices.get(stage);
+    if (index === undefined || !this.nv.volumes[index]) return null;
+    return index;
   }
 
   getVolumeDataMax(volume) {

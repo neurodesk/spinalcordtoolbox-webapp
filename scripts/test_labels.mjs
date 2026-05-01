@@ -54,4 +54,46 @@ assert.equal(cordLut.max, 1);
 assert.equal(cordLut.I.at(0), 0);
 assert.equal(cordLut.I.at(-1), 255);
 
+// Regression: NiiVue's `makeLut()` rounds `I` through `Uint8ClampedArray`
+// before painting the GPU LUT. If the held stop and the next label start
+// round to the same Uint8 bucket, the resulting LUT segment has zero range
+// and produces NaN (divide-by-zero) clamped to 0, leaving the binary
+// spinalcord overlay entirely transparent. The held stop and the label start
+// MUST therefore land on distinct integer buckets after Uint8 rounding.
+// (Vertebrae 12-label LUT silently masks this bug — its later iterations
+// overwrite the corrupted bucket — so spinalcord is the canary.)
+for (let i = 0; i < cordLut.I.length - 1; i++) {
+  const lo = Math.round(cordLut.I[i]);
+  const hi = Math.round(cordLut.I[i + 1]);
+  assert.notEqual(lo, hi,
+    `spinalcord LUT stops ${cordLut.I[i]} and ${cordLut.I[i + 1]} both round to Uint8 ${lo}; ` +
+    `held stop must round to a distinct bucket from the next label start, otherwise NiiVue ` +
+    `produces an all-transparent LUT and the segmentation overlay disappears.`);
+}
+
+// Stronger end-to-end check: simulate `Uint8ClampedArray.from(I)` and walk
+// the same segment-fill loop NiiVue's `makeLut` runs. If any LUT bucket up
+// to the highest label index ends with non-zero alpha equal to the cord's
+// labelled colour, the overlay is visible.
+const Is = Array.from(Uint8ClampedArray.from(cordLut.I));
+let cordVisible = false;
+for (let i = 0; i < Is.length - 1; i++) {
+  const idxLo = Is[i];
+  const idxHi = Is[i + 1];
+  const range = idxHi - idxLo;
+  if (range <= 0) continue;
+  for (let j = idxLo; j <= idxHi; j++) {
+    const f = (j - idxLo) / range;
+    const r = cordLut.R[i] + f * (cordLut.R[i + 1] - cordLut.R[i]);
+    const g = cordLut.G[i] + f * (cordLut.G[i + 1] - cordLut.G[i]);
+    const b = cordLut.B[i] + f * (cordLut.B[i + 1] - cordLut.B[i]);
+    const a = cordLut.A[i] + f * (cordLut.A[i + 1] - cordLut.A[i]);
+    if (j === 255 && a > 0 && (r > 0 || g > 0 || b > 0)) cordVisible = true;
+  }
+}
+assert.ok(cordVisible,
+  'spinalcord LUT must paint a visible (non-transparent, non-black) colour at LUT[255]; ' +
+  'a binary mask voxel value of 1 maps to LUT[255] and an invisible bucket there means ' +
+  'the segmentation overlay is silently hidden.');
+
 console.log(`Label LUT step encoding OK: vertebrae=${lut.I.length} stops, spinalcord=${cordLut.I.length} stops`);
