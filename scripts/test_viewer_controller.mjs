@@ -99,6 +99,25 @@ function makeFile(name) {
 {
   const nv = createFakeNiivue();
   const viewer = new ViewerController({ nv });
+
+  nv.volumes.push({
+    id: 'vertebrae.nii',
+    name: 'vertebrae.nii',
+    colormap: 'sct-vertebrae',
+    opacity: 0.7,
+    global_max: 1,
+    img: new Uint8Array([0, 1, 5, 11])
+  });
+  viewer.configureSegmentationVolume(1, 'sct-vertebrae');
+
+  assert.equal(nv.volumes[1].cal_min, 0);
+  assert.equal(nv.volumes[1].cal_max, 11);
+  assert.equal(nv.volumes[1].colormap, 'sct-vertebrae');
+}
+
+{
+  const nv = createFakeNiivue();
+  const viewer = new ViewerController({ nv });
   const input = makeFile('input_roundtrip.nii');
   const seg = makeFile('seg_roundtrip.nii');
 

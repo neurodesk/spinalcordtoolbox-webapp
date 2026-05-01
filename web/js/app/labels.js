@@ -13,6 +13,8 @@ const STEP_EPSILON = 1e-3;
 
 export function generateNiivueColormap(taskId = 'spinalcord') {
   const labels = [...getTaskLabels(taskId)].sort((a, b) => a.index - b.index);
+  const maxLabelIndex = Math.max(1, ...labels.map(label => label.index));
+  const scaleToLutIndex = index => (index / maxLabelIndex) * 255;
   const R = [];
   const G = [];
   const B = [];
@@ -27,7 +29,7 @@ export function generateNiivueColormap(taskId = 'spinalcord') {
     G.push(color[1]);
     B.push(color[2]);
     A.push(color[3]);
-    I.push(label.index);
+    I.push(scaleToLutIndex(label.index));
     labelNames.push(label.name);
 
     const next = labels[i + 1];
@@ -37,7 +39,7 @@ export function generateNiivueColormap(taskId = 'spinalcord') {
       G.push(color[1]);
       B.push(color[2]);
       A.push(color[3]);
-      I.push(next.index - STEP_EPSILON);
+      I.push(scaleToLutIndex(next.index) - STEP_EPSILON);
       labelNames.push('');
     }
   }

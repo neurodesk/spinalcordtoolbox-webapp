@@ -78,7 +78,7 @@ export class ViewerController {
     if (!volume) return;
 
     volume.cal_min = 0;
-    volume.cal_max = Math.max(1, volume.global_max ?? 1);
+    volume.cal_max = Math.max(1, this.getVolumeDataMax(volume));
     volume.colormap = colormap;
     // Binary/discrete segmentation: disable trilinear smoothing so thin
     // structures don't interpolate to fractional values that miss the LUT.
@@ -179,6 +179,18 @@ export class ViewerController {
       return this.currentOverlayIndex;
     }
     return this.nv.volumes.length > 1 ? this.nv.volumes.length - 1 : null;
+  }
+
+  getVolumeDataMax(volume) {
+    if (volume?.img?.length) {
+      let maxValue = -Infinity;
+      for (let i = 0; i < volume.img.length; i++) {
+        const value = volume.img[i];
+        if (Number.isFinite(value) && value > maxValue) maxValue = value;
+      }
+      if (Number.isFinite(maxValue)) return maxValue;
+    }
+    return volume?.global_max ?? 1;
   }
 
   getCurrentFile() {

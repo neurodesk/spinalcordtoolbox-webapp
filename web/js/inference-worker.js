@@ -276,9 +276,12 @@ function createOutputNifti(uint8Data, sourceHeader, dims) {
   destView.setFloat32(112, 1, true);  // scl_slope
   destView.setFloat32(116, 0, true);  // scl_inter
 
-  // cal_min/cal_max for binary mask
-  destView.setFloat32(124, 1, true);   // cal_max
-  destView.setFloat32(128, 0, true);   // cal_min
+  let maxVal = 0;
+  for (let i = 0; i < uint8Data.length; i++) {
+    if (uint8Data[i] > maxVal) maxVal = uint8Data[i];
+  }
+  destView.setFloat32(124, Math.max(1, maxVal), true);  // cal_max
+  destView.setFloat32(128, 0, true);                    // cal_min
 
   new Uint8Array(buffer, headerSize).set(uint8Data);
   return buffer;

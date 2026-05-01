@@ -61,9 +61,18 @@ python3 -c "
 import http.server, functools
 
 class CORSHandler(http.server.SimpleHTTPRequestHandler):
+    def send_head(self):
+        for header in ('If-Modified-Since', 'If-None-Match'):
+            if header in self.headers:
+                del self.headers[header]
+        return super().send_head()
+
     def end_headers(self):
         self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
         self.send_header('Cross-Origin-Embedder-Policy', 'credentialless')
+        self.send_header('Cache-Control', 'no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         super().end_headers()
 
 http.server.HTTPServer(('', $PORT), CORSHandler).serve_forever()

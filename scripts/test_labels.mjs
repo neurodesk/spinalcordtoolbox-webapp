@@ -26,16 +26,21 @@ assert.equal(lut.A.length, lut.I.length, 'A/I length mismatch');
 
 assert.equal(lut.min, 0);
 assert.equal(lut.max, 11);
+assert.equal(lut.I.at(0), 0);
+assert.equal(lut.I.at(-1), 255);
 
 // Each label index is followed by a held stop just below the next index,
 // painted with the same color. That keeps NiiVue from interpolating across
 // vertebrae.
 for (let i = 0; i < lut.I.length - 1; i += 2) {
+  const labelIndex = i / 2;
   const indexAtStart = lut.I[i];
   const indexBeforeNext = lut.I[i + 1];
-  assert.ok(Number.isInteger(indexAtStart), `LUT[${i}] should be integer index, got ${indexAtStart}`);
-  assert.ok(indexBeforeNext > indexAtStart, `held stop must come after index stop`);
-  assert.ok(indexBeforeNext < indexAtStart + 1, `held stop must come before next integer`);
+  const expectedStart = (labelIndex / 11) * 255;
+  const expectedNext = ((labelIndex + 1) / 11) * 255;
+  assert.ok(Math.abs(indexAtStart - expectedStart) < 1e-9, `LUT[${i}] should scale label ${labelIndex} to ${expectedStart}, got ${indexAtStart}`);
+  assert.ok(indexBeforeNext > indexAtStart, `held stop must come after label ${labelIndex} start`);
+  assert.ok(indexBeforeNext < expectedNext, `held stop must come before next label ${labelIndex + 1}`);
   assert.equal(lut.R[i], lut.R[i + 1], `R held flat across label ${indexAtStart}`);
   assert.equal(lut.G[i], lut.G[i + 1], `G held flat across label ${indexAtStart}`);
   assert.equal(lut.B[i], lut.B[i + 1], `B held flat across label ${indexAtStart}`);
@@ -46,5 +51,7 @@ for (let i = 0; i < lut.I.length - 1; i += 2) {
 const cordLut = generateNiivueColormap('spinalcord');
 assert.equal(cordLut.I.length, 3, 'spinalcord step LUT: 2 labels + 1 held stop');
 assert.equal(cordLut.max, 1);
+assert.equal(cordLut.I.at(0), 0);
+assert.equal(cordLut.I.at(-1), 255);
 
 console.log(`Label LUT step encoding OK: vertebrae=${lut.I.length} stops, spinalcord=${cordLut.I.length} stops`);
