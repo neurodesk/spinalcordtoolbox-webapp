@@ -1362,15 +1362,11 @@ class SpinalCordToolboxApp {
       : result?.file;
     if (!file) return;
 
-    this.clearMetricsResult();
-    await this.viewerController.loadBaseVolume(file);
     this.currentResultTab = stage;
+    this.clearMetricsResult();
     this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
-    this.applyDefaultBaseColormap();
-    this.syncWindowControls();
-    this.applyAutoContrast();
 
     await this.renderViewerVolumes();
 
@@ -1437,6 +1433,14 @@ class SpinalCordToolboxApp {
     ));
   }
 
+  async loadViewerStackIfChanged(stackEntries) {
+    if (this.viewerController.isCurrentVolumeStack?.(stackEntries)) {
+      return false;
+    }
+    await this.viewerController.loadVolumeStack(stackEntries);
+    return true;
+  }
+
   async renderViewerVolumes() {
     this._renderViewerRequested = true;
     this._renderViewerPromise = this._renderViewerPromise.then(async () => {
@@ -1470,7 +1474,7 @@ class SpinalCordToolboxApp {
             labelMask: true
           });
         }
-        await this.viewerController.loadVolumeStack(stackEntries);
+        await this.loadViewerStackIfChanged(stackEntries);
         this.syncWindowControls();
       } else {
         this.viewerController.clearVolumes();
@@ -1497,7 +1501,7 @@ class SpinalCordToolboxApp {
       });
     }
 
-    await this.viewerController.loadVolumeStack(stackEntries);
+    await this.loadViewerStackIfChanged(stackEntries);
     this.applyDefaultBaseColormap();
     this.syncWindowControls();
     this.applyAutoContrast();
@@ -1612,7 +1616,7 @@ class SpinalCordToolboxApp {
     if (opacityDisplay) opacityDisplay.textContent = '50%';
 
     if (this.inputFile) {
-      this.viewerController.loadBaseVolume(this.inputFile);
+      this.viewerController.loadBaseVolume(this.inputFile, { stage: 'input' });
     }
 
     this.updateViewerInfo(this._lastLocationData);

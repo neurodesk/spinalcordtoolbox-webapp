@@ -15,6 +15,9 @@ export class ViewerController {
     this.volumeStageIndices = new Map();
     this.sctColormapsRegistered = new Set();
     this.objectUrls = new WeakMap();
+    this.stackFileIds = new WeakMap();
+    this.nextStackFileId = 1;
+    this.currentVolumeStackSignature = null;
   }
 
   getObjectUrl(file) {
@@ -22,6 +25,29 @@ export class ViewerController {
       this.objectUrls.set(file, URL.createObjectURL(file));
     }
     return this.objectUrls.get(file);
+  }
+
+  getStackFileId(file) {
+    if (!this.stackFileIds.has(file)) {
+      this.stackFileIds.set(file, this.nextStackFileId++);
+    }
+    return this.stackFileIds.get(file);
+  }
+
+  getVolumeStackSignature(entries) {
+    return JSON.stringify(entries.map(entry => ({
+      fileId: this.getStackFileId(entry.file),
+      stage: entry.stage || null,
+      colormap: entry.colormap || null,
+      opacity: entry.opacity ?? null,
+      labelMask: !!entry.labelMask
+    })));
+  }
+
+  isCurrentVolumeStack(entries) {
+    if (!this.currentVolumeStackSignature) return false;
+    if (this.nv.volumes.length !== entries.length) return false;
+    return this.currentVolumeStackSignature === this.getVolumeStackSignature(entries);
   }
 
   /**
@@ -51,6 +77,10 @@ export class ViewerController {
       this.currentOverlayIndex = null;
       this.volumeStageIndices.clear();
       if (options.stage) this.volumeStageIndices.set(options.stage, 0);
+      this.currentVolumeStackSignature = this.getVolumeStackSignature([{
+        file,
+        stage: options.stage || null
+      }]);
       this.updateOutput(`${file.name} loaded`);
     } catch (error) {
       this.updateOutput(`Error loading ${file.name}: ${error.message}`);
@@ -63,6 +93,8 @@ export class ViewerController {
       this.clearVolumes();
       return;
     }
+
+    if (this.isCurrentVolumeStack(entries)) return;
 
     // NiiVue's `loadVolumes()` with multiple volumes calls `addVolume()` per
     // entry but the overlay paths (cal_min/cal_max, colormap LUT, opacity)
@@ -91,6 +123,8 @@ export class ViewerController {
           { stage: entry.stage }
         );
       }
+
+      this.currentVolumeStackSignature = this.getVolumeStackSignature(entries);
     } catch (error) {
       this.updateOutput(`Error loading viewer volumes: ${error.message}`);
       console.error(error);
@@ -103,6 +137,7 @@ export class ViewerController {
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
     this.volumeStageIndices.clear();
+    this.currentVolumeStackSignature = null;
     this.nv.updateGLVolume();
     this.nv.drawScene?.();
   }
@@ -121,6 +156,7 @@ export class ViewerController {
 
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
+    this.currentVolumeStackSignature = null;
   }
 
   configureSegmentationVolume(index, colormap) {
@@ -159,6 +195,7 @@ export class ViewerController {
       this.currentOverlayFile = file;
       this.currentOverlayIndex = overlayIndex > 0 ? overlayIndex : null;
       if (options.stage) this.volumeStageIndices.set(options.stage, overlayIndex);
+      this.currentVolumeStackSignature = null;
     } catch (error) {
       this.updateOutput(`Error loading overlay: ${error.message}`);
       console.error(error);
@@ -171,6 +208,12 @@ export class ViewerController {
     this.currentBaseFile = file;
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
+    this.currentVolumeStackSignature = this.getVolumeStackSignature([{
+      file,
+      stage: options.stage || null,
+      colormap,
+      labelMask: true
+    }]);
     this.nv.updateGLVolume();
     this.nv.drawScene?.();
   }

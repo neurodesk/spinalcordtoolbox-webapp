@@ -76,11 +76,16 @@ function makeFile(name) {
     const viewer = new ViewerController({ nv });
     const input = makeFile('input_reuse.nii');
     const seg = makeFile('seg_reuse.nii');
+    const lesion = makeFile('lesion_reuse.nii');
 
     await viewer.loadVolumeStack([
       { file: input, stage: 'input' },
       { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true }
     ]);
+    assert.equal(viewer.isCurrentVolumeStack([
+      { file: input, stage: 'input' },
+      { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true }
+    ]), true, 'loaded stack signature should match the requested stack');
     await viewer.loadVolumeStack([
       { file: input, stage: 'input' },
       { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true }
@@ -89,9 +94,18 @@ function makeFile(name) {
     assert.deepEqual(created, ['blob:test-0-input_reuse.nii', 'blob:test-1-seg_reuse.nii'], 'viewer reuses stable object URLs for repeated File loads');
     assert.deepEqual(revoked, [], 'viewer must not revoke object URLs while NiiVue may still fetch them');
     assert.equal(nv.loadVolumesCalls[0][0].url, 'blob:test-0-input_reuse.nii');
-    assert.equal(nv.loadVolumesCalls[1][0].url, 'blob:test-0-input_reuse.nii');
     assert.equal(nv.addVolumeFromUrlCalls[0].url, 'blob:test-1-seg_reuse.nii');
-    assert.equal(nv.addVolumeFromUrlCalls[1].url, 'blob:test-1-seg_reuse.nii');
+    assert.equal(nv.loadVolumesCalls.length, 1, 'identical stack reloads must skip nv.loadVolumes');
+    assert.equal(nv.addVolumeFromUrlCalls.length, 1, 'identical stack reloads must skip nv.addVolumeFromUrl');
+
+    await viewer.loadVolumeStack([
+      { file: input, stage: 'input' },
+      { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true },
+      { file: lesion, stage: 'lesion', colormap: 'sct-lesion', opacity: 0.7, labelMask: true }
+    ]);
+    assert.deepEqual(created, ['blob:test-0-input_reuse.nii', 'blob:test-1-seg_reuse.nii', 'blob:test-2-lesion_reuse.nii'], 'changed stacks reuse existing URLs and create URLs only for new files');
+    assert.equal(nv.loadVolumesCalls.length, 2, 'changed stacks must reload the base once');
+    assert.equal(nv.addVolumeFromUrlCalls.length, 3, 'changed stacks must add each requested overlay');
   } finally {
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
