@@ -1170,7 +1170,6 @@ class SpinalCordToolboxApp {
       if (overlayControl) overlayControl.classList.remove('hidden');
       await this.renderViewerVolumes();
     } else if (data.kind === 'metrics') {
-      this.currentResultTab = data.stage;
       this.renderMetricsResult(data.stage);
     } else {
       const result = this.inferenceExecutor.getResult(data.stage);
@@ -1185,16 +1184,25 @@ class SpinalCordToolboxApp {
     this.rebuildResultsList();
   }
 
+  isMetricsResultStage(stage) {
+    return this.inferenceExecutor.getResult(stage)?.kind === 'metrics';
+  }
+
+  getResultListStages() {
+    return this.inferenceExecutor.getStageOrder().filter(stage => !this.isMetricsResultStage(stage));
+  }
+
   rebuildResultsList() {
     const container = document.getElementById('stageButtons');
     if (!container) return;
     container.innerHTML = '';
 
-    const stages = this.inferenceExecutor.getStageOrder();
+    const stages = this.getResultListStages();
     const dlSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
     const viewSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-    // Build all rows with uniform layout: eye icon + label + download button
+    // Build viewable image rows with uniform layout: eye icon + label + download button.
+    // Statistics stages render in the metrics panel instead of this layer list.
     const allStages = this.inputFile
       ? ['input', ...stages.filter(stage => stage !== 'input')]
       : [...stages];
@@ -1249,6 +1257,27 @@ class SpinalCordToolboxApp {
     }
   }
 
+  downloadMetricsResult(stage) {
+    const result = this.inferenceExecutor.getResult(stage);
+    if (result?.kind !== 'metrics') {
+      this.updateOutput(`${stage} statistics not available`);
+      return;
+    }
+
+    const csv = result.csv || '';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const filename = result.file?.name || `${stage}.csv`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this.updateOutput(`Downloaded statistics: ${filename}`);
+  }
+
   formatMetric(value) {
     if (value === null || value === undefined || value === '') return '';
     if (!Number.isFinite(Number(value))) return String(value);
@@ -1296,6 +1325,23 @@ class SpinalCordToolboxApp {
 
     panel.innerHTML = '';
     panel.classList.remove('hidden');
+
+    const dlSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    const header = document.createElement('div');
+    header.className = 'metrics-header';
+    const title = document.createElement('span');
+    title.className = 'metrics-title';
+    title.textContent = Config.STAGE_NAMES[stage] || 'Statistics';
+    header.appendChild(title);
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'metrics-download-btn';
+    downloadBtn.type = 'button';
+    downloadBtn.title = 'Download statistics CSV';
+    downloadBtn.setAttribute('aria-label', 'Download statistics CSV');
+    downloadBtn.innerHTML = `${dlSvg}<span>CSV</span>`;
+    downloadBtn.addEventListener('click', () => this.downloadMetricsResult(stage));
+    header.appendChild(downloadBtn);
+    panel.appendChild(header);
 
     const summaryGrid = document.createElement('div');
     summaryGrid.className = 'metrics-summary';
@@ -1351,7 +1397,6 @@ class SpinalCordToolboxApp {
   async viewStage(stage) {
     const result = stage === 'input' ? null : this.inferenceExecutor.getResult(stage);
     if (result?.kind === 'metrics') {
-      this.currentResultTab = stage;
       this.renderMetricsResult(stage);
       this.syncResultViewButtons();
       return;

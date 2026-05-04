@@ -78,6 +78,9 @@ assert.match(appJs, /for \(const overlayStage of visibleOverlayStages\)[\s\S]*?s
 assert.match(appJs, /_renderViewerPromise\s*=\s*Promise\.resolve\(\)/, 'viewer renders must be serialized to prevent late base loads from wiping overlays');
 assert.match(appJs, /renderViewerVolumes\(\)\s*\{[\s\S]*?_renderViewerPromise\s*=\s*this\._renderViewerPromise\.then/, 'renderViewerVolumes must enqueue render work in order');
 assert.match(appJs, /loadViewerStackIfChanged\(stackEntries\)\s*\{[\s\S]*?isCurrentVolumeStack\?\.\(stackEntries\)[\s\S]*?return false[\s\S]*?loadVolumeStack\(stackEntries\)/, 'renderViewerVolumes must skip loadVolumeStack when the requested stack is already current');
+assert.match(appJs, /getResultListStages\(\)\s*\{[\s\S]*?getStageOrder\(\)\.filter\(stage => !this\.isMetricsResultStage\(stage\)\)/, 'metrics stages must be excluded from the viewable/downloadable image-layer result list');
+assert.match(appJs, /renderMetricsResult\(stage\)[\s\S]*?metrics-download-btn[\s\S]*?downloadMetricsResult\(stage\)/, 'metrics statistics panel must provide its own CSV download button');
+assert.match(appJs, /downloadMetricsResult\(stage\)[\s\S]*?result\?\.kind !== 'metrics'[\s\S]*?Downloaded statistics/, 'metrics CSV download must be handled as statistics, not as a layer download');
 
 // Visibility must not resurrect missing sibling results. Auto-rendering a
 // stale vertebrae result onto a new input or new segmentation would silently
