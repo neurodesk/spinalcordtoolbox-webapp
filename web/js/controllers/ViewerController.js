@@ -14,6 +14,14 @@ export class ViewerController {
     this.currentOverlayIndex = null;
     this.volumeStageIndices = new Map();
     this.sctColormapsRegistered = new Set();
+    this.objectUrls = new WeakMap();
+  }
+
+  getObjectUrl(file) {
+    if (!this.objectUrls.has(file)) {
+      this.objectUrls.set(file, URL.createObjectURL(file));
+    }
+    return this.objectUrls.get(file);
   }
 
   /**
@@ -36,9 +44,8 @@ export class ViewerController {
   async loadBaseVolume(file, options = {}) {
     try {
       this.updateOutput(`Loading ${file.name}...`);
-      const url = URL.createObjectURL(file);
+      const url = this.getObjectUrl(file);
       await this.nv.loadVolumes([{ url: url, name: file.name }]);
-      URL.revokeObjectURL(url);
       this.currentBaseFile = file;
       this.currentOverlayFile = null;
       this.currentOverlayIndex = null;
@@ -133,14 +140,13 @@ export class ViewerController {
 
   async loadOverlay(file, colormap = 'red', opacity = 0.5, options = {}) {
     try {
-      const url = URL.createObjectURL(file);
+      const url = this.getObjectUrl(file);
       await this.nv.addVolumeFromUrl({
         url: url,
         name: file.name,
         colormap: colormap,
         opacity
       });
-      URL.revokeObjectURL(url);
 
       const overlayIndex = this.nv.volumes.length - 1;
       if (overlayIndex > 0) {

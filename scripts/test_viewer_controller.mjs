@@ -14,7 +14,7 @@ function createFakeNiivue() {
     drawCount: 0,
     addColormap() {},
     async loadVolumes(volumes) {
-      this.loadVolumesCalls.push(volumes.map(v => ({ name: v.name, colormap: v.colormap })));
+      this.loadVolumesCalls.push(volumes.map(v => ({ name: v.name, colormap: v.colormap, url: v.url })));
       this.volumes = volumes.map(volume => ({
         id: volume.name,
         name: volume.name,
@@ -24,7 +24,7 @@ function createFakeNiivue() {
       }));
     },
     async addVolumeFromUrl(volume) {
-      this.addVolumeFromUrlCalls.push({ name: volume.name, colormap: volume.colormap });
+      this.addVolumeFromUrlCalls.push({ name: volume.name, colormap: volume.colormap, url: volume.url });
       this.volumes.push({
         id: volume.name,
         name: volume.name,
@@ -56,6 +56,46 @@ function createFakeNiivue() {
 
 function makeFile(name) {
   return new File([new Uint8Array([1, 2, 3])], name, { type: 'application/octet-stream' });
+}
+
+{
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const created = [];
+  const revoked = [];
+  URL.createObjectURL = (file) => {
+    const url = `blob:test-${created.length}-${file.name}`;
+    created.push(url);
+    return url;
+  };
+  URL.revokeObjectURL = (url) => {
+    revoked.push(url);
+  };
+  try {
+    const nv = createFakeNiivue();
+    const viewer = new ViewerController({ nv });
+    const input = makeFile('input_reuse.nii');
+    const seg = makeFile('seg_reuse.nii');
+
+    await viewer.loadVolumeStack([
+      { file: input, stage: 'input' },
+      { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true }
+    ]);
+    await viewer.loadVolumeStack([
+      { file: input, stage: 'input' },
+      { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true }
+    ]);
+
+    assert.deepEqual(created, ['blob:test-0-input_reuse.nii', 'blob:test-1-seg_reuse.nii'], 'viewer reuses stable object URLs for repeated File loads');
+    assert.deepEqual(revoked, [], 'viewer must not revoke object URLs while NiiVue may still fetch them');
+    assert.equal(nv.loadVolumesCalls[0][0].url, 'blob:test-0-input_reuse.nii');
+    assert.equal(nv.loadVolumesCalls[1][0].url, 'blob:test-0-input_reuse.nii');
+    assert.equal(nv.addVolumeFromUrlCalls[0].url, 'blob:test-1-seg_reuse.nii');
+    assert.equal(nv.addVolumeFromUrlCalls[1].url, 'blob:test-1-seg_reuse.nii');
+  } finally {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
 }
 
 {
