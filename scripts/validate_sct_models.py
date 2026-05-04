@@ -6,6 +6,7 @@ Validate the SCT browser model manifest.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -16,6 +17,8 @@ VALID_OUTPUT_TYPES = {"binary-mask", "multi-label-mask", "soft-mask", "unsupport
 VALID_SUPPORT = {"supported", "unsupported", "unvalidated", "retired"}
 VALID_VALIDATION = {"not-run", "passed", "failed", "manual-only"}
 VALID_CONVERSION = {"native", "converted", "failed", "not-needed"}
+VALID_STAGE_KINDS = {"nifti", "metrics"}
+VALID_ACTIVATIONS = {"sigmoid", "sigmoid-regions", "softmax"}
 
 
 def fail(errors: list[str], message: str) -> None:
@@ -47,8 +50,51 @@ def validate_asset(asset: dict, where: str, model_dir: Path, errors: list[str]) 
             fail(errors, f"{where}: model file does not exist: {path}")
         if "checksum" not in asset:
             fail(errors, f"{where}: converted/native asset must include checksum")
+        expected_size = asset.get("sizeBytes")
+        if not isinstance(expected_size, int) or expected_size <= 0:
+            fail(errors, f"{where}: converted/native asset must include positive sizeBytes")
+        elif path.exists() and path.stat().st_size != expected_size:
+            fail(errors, f"{where}: sizeBytes={expected_size} but file size is {path.stat().st_size}")
+        if path.exists() and filename.endswith(".onnx"):
+            size = path.stat().st_size
+            prefix = path.read_bytes()[:128]
+            if size < 1_000_000 or prefix.startswith(b"version https://git-lfs"):
+                fail(errors, f"{where}: ONNX asset is unexpectedly small or is a Git LFS pointer: {path}")
+        checksum = asset.get("checksum")
+        if path.exists() and isinstance(checksum, str) and checksum.startswith("sha256:"):
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if checksum != f"sha256:{digest}":
+                fail(errors, f"{where}: checksum mismatch, manifest={checksum} file=sha256:{digest}")
     if asset.get("conversionStatus") == "failed" and not asset.get("failureReason"):
         fail(errors, f"{where}: failed conversion must include failureReason")
+    output = asset.get("output")
+    if output is not None:
+        if output.get("activation") not in VALID_ACTIVATIONS:
+            fail(errors, f"{where}.output: invalid activation '{output.get('activation')}'")
+        if output.get("activation") == "sigmoid-regions":
+            channel_count = output.get("channelCount")
+            if not isinstance(channel_count, int) or channel_count < 1:
+                fail(errors, f"{where}.output: sigmoid-regions must define positive channelCount")
+            for region_index, region in enumerate(output.get("regions", [])):
+                rwhere = f"{where}.output.regions[{region_index}]"
+                for key in ("stage", "channel", "sourceLabels", "outputLabel"):
+                    require(region, key, rwhere, errors)
+                if isinstance(channel_count, int) and isinstance(region.get("channel"), int) and region["channel"] >= channel_count:
+                    fail(errors, f"{rwhere}: channel {region['channel']} outside channelCount={channel_count}")
+
+
+def validate_output_stage(stage: dict, where: str, errors: list[str]) -> None:
+    for key in ("id", "kind"):
+        require(stage, key, where, errors)
+    if stage.get("kind") not in VALID_STAGE_KINDS:
+        fail(errors, f"{where}: invalid kind '{stage.get('kind')}'")
+    if stage.get("kind") == "nifti":
+        for key in ("labelSet", "outputSuffix"):
+            require(stage, key, where, errors)
+    if stage.get("kind") == "metrics":
+        derived = stage.get("derivedFrom")
+        if not isinstance(derived, list) or len(derived) < 1:
+            fail(errors, f"{where}: metrics stages must define derivedFrom")
 
 
 def validate_task(task: dict, index: int, model_dir: Path, errors: list[str]) -> None:
@@ -72,6 +118,13 @@ def validate_task(task: dict, index: int, model_dir: Path, errors: list[str]) ->
         fail(errors, f"{where}: supported tasks must define at least background and foreground labels")
     for label_index, label in enumerate(labels):
         validate_label(label, f"{where}.labels[{label_index}]", errors)
+    seen_stages: set[str] = set()
+    for stage_index, stage in enumerate(task.get("outputStages", [])):
+        validate_output_stage(stage, f"{where}.outputStages[{stage_index}]", errors)
+        stage_id = stage.get("id")
+        if stage_id in seen_stages:
+            fail(errors, f"{where}.outputStages[{stage_index}]: duplicate id '{stage_id}'")
+        seen_stages.add(stage_id)
     for asset_index, asset in enumerate(task.get("modelAssets", [])):
         validate_asset(asset, f"{where}.modelAssets[{asset_index}]", model_dir, errors)
 

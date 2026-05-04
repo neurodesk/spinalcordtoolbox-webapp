@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "sctStableSource": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-  "generatedAt": "2026-04-29T00:00:00Z",
+  "generatedAt": "2026-05-04T17:56:29.168Z",
   "tasks": [
     {
       "id": "spinalcord",
@@ -51,7 +51,7 @@
             "targetSpacing": [
               0.8958333,
               0.7,
-              1.0
+              1
             ]
           },
           "inferenceDefaults": {
@@ -59,7 +59,7 @@
             "minComponentSize": 10,
             "testTimeAugmentation": true
           },
-          "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.5"
+          "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.8"
         }
       ],
       "labels": [
@@ -71,7 +71,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -81,7 +82,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -114,7 +116,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -124,7 +127,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -157,7 +161,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -167,7 +172,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -200,7 +206,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -210,7 +217,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -257,7 +265,7 @@
             "minComponentSize": 1000,
             "testTimeAugmentation": false
           },
-          "cacheKey": "graymatter:sct-graymatter:stable:app-7.1.5"
+          "cacheKey": "graymatter:sct-graymatter:stable:app-7.1.8"
         }
       ],
       "labels": [
@@ -269,7 +277,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No gray matter"
         },
         {
           "index": 1,
@@ -279,7 +288,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Spinal cord gray matter"
         }
       ]
     },
@@ -338,7 +348,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -348,7 +359,8 @@
             18,
             59,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 1"
         },
         {
           "index": 2,
@@ -358,7 +370,8 @@
             75,
             174,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 2"
         },
         {
           "index": 3,
@@ -368,7 +381,8 @@
             138,
             222,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 3"
         },
         {
           "index": 4,
@@ -378,7 +392,8 @@
             191,
             215,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 4"
         },
         {
           "index": 5,
@@ -388,7 +403,8 @@
             230,
             160,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 5"
         },
         {
           "index": 6,
@@ -398,7 +414,8 @@
             248,
             91,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 6"
         },
         {
           "index": 7,
@@ -408,7 +425,8 @@
             234,
             53,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 7"
         },
         {
           "index": 8,
@@ -418,7 +436,8 @@
             187,
             43,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 8"
         },
         {
           "index": 9,
@@ -428,7 +447,8 @@
             130,
             38,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 9"
         },
         {
           "index": 10,
@@ -438,7 +458,8 @@
             65,
             22,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 10"
         },
         {
           "index": 11,
@@ -448,7 +469,8 @@
             22,
             11,
             255
-          ]
+          ],
+          "meaning": "Vertebral level 11"
         }
       ]
     },
@@ -481,7 +503,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No gray matter"
         },
         {
           "index": 1,
@@ -491,7 +514,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Spinal cord gray matter"
         }
       ]
     },
@@ -524,7 +548,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -534,7 +559,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 1"
         },
         {
           "index": 2,
@@ -544,7 +570,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 2"
         },
         {
           "index": 3,
@@ -554,7 +581,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 3"
         }
       ]
     },
@@ -587,7 +615,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -597,7 +626,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 1"
         },
         {
           "index": 2,
@@ -607,7 +637,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 2"
         },
         {
           "index": 3,
@@ -617,7 +648,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 3"
         }
       ]
     },
@@ -650,7 +682,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No gray matter"
         },
         {
           "index": 1,
@@ -660,7 +693,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Spinal cord gray matter"
         }
       ]
     },
@@ -668,7 +702,7 @@
       "id": "lesion_sci_t2",
       "displayName": "SCI lesion T2",
       "category": "pathology",
-      "description": "Spinal cord injury lesion segmentation for T2-weighted data.",
+      "description": "SCIsegV2 spinal cord and spinal cord injury lesion segmentation for T2-weighted data.",
       "inputContrasts": [
         "T2w"
       ],
@@ -678,12 +712,138 @@
           "contrast": "T2w spinal cord injury MRI"
         }
       ],
-      "outputType": "binary-mask",
+      "outputType": "multi-label-mask",
       "labelSet": "lesion",
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution.",
-      "modelAssets": [],
+      "supportStatus": "supported",
+      "validationStatus": "passed",
+      "validationSummary": "Converted SCT SCIsegV2 r20240729 region-based nnUNet package to a single ONNX asset and validated browser region post-processing plus lesion-analysis metrics with regression tests.",
+      "outputStages": [
+        {
+          "id": "segmentation",
+          "kind": "nifti",
+          "labelSet": "spinalcord",
+          "sourceRegion": "sc",
+          "sourceLabels": [
+            1,
+            2
+          ],
+          "outputSuffix": "_sc_seg"
+        },
+        {
+          "id": "lesion",
+          "kind": "nifti",
+          "labelSet": "lesion",
+          "sourceRegion": "lesion",
+          "sourceLabels": [
+            2
+          ],
+          "outputSuffix": "_lesion_seg"
+        },
+        {
+          "id": "lesion_metrics",
+          "kind": "metrics",
+          "derivedFrom": [
+            "segmentation",
+            "lesion"
+          ],
+          "outputSuffix": "_lesion_metrics.csv"
+        }
+      ],
+      "modelAssets": [
+        {
+          "id": "sct-lesion-sci-t2",
+          "sourceUrl": "https://github.com/ivadomed/model_seg_sci/releases/download/r20240729/model_SCIsegV2_r20240729.zip",
+          "sourceVersion": "r20240729",
+          "sourceFormat": "SCT SCIsegV2 nnUNet region package",
+          "browserFormat": "onnx",
+          "filename": "sct-lesion-sci-t2.onnx",
+          "conversionStatus": "converted",
+          "checksum": "sha256:3b28b46ac85345fd33f0ce393c6538370794fe9b5d1ffedeb5df88891bfa1cdb",
+          "sizeBytes": 123451938,
+          "modelOrientation": "RPI",
+          "patchSize": [
+            128,
+            192,
+            96
+          ],
+          "preprocessing": {
+            "modelOrientation": "RPI",
+            "modelAxisOrder": "zyx",
+            "targetSpacing": [
+              0.6875,
+              0.5077999234199524,
+              0.68751
+            ]
+          },
+          "output": {
+            "activation": "sigmoid-regions",
+            "channelCount": 2,
+            "channelOrder": [
+              "sc",
+              "lesion"
+            ],
+            "datasetLabels": {
+              "background": 0,
+              "sc": [
+                1,
+                2
+              ],
+              "lesion": 2
+            },
+            "classMap": [
+              {
+                "stage": "segmentation",
+                "sourceRegion": "sc",
+                "sourceLabels": [
+                  1,
+                  2
+                ],
+                "outputLabel": 1
+              },
+              {
+                "stage": "lesion",
+                "sourceRegion": "lesion",
+                "sourceLabels": [
+                  2
+                ],
+                "outputLabel": 1
+              }
+            ],
+            "regions": [
+              {
+                "name": "sc",
+                "stage": "segmentation",
+                "channel": 0,
+                "sourceLabels": [
+                  1,
+                  2
+                ],
+                "outputLabel": 1,
+                "threshold": 0.5,
+                "description": "SCIsegV2 spinal cord segmentation"
+              },
+              {
+                "name": "lesion",
+                "stage": "lesion",
+                "channel": 1,
+                "sourceLabels": [
+                  2
+                ],
+                "outputLabel": 1,
+                "threshold": 0.5,
+                "description": "SCIsegV2 lesion segmentation"
+              }
+            ],
+            "metricsStage": "lesion_metrics"
+          },
+          "inferenceDefaults": {
+            "probabilityThreshold": 0.5,
+            "minComponentSize": 1,
+            "testTimeAugmentation": false
+          },
+          "cacheKey": "lesion_sci_t2:sct-lesion-sci-t2:r20240729:app-7.1.8"
+        }
+      ],
       "labels": [
         {
           "index": 0,
@@ -693,7 +853,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -703,7 +864,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -741,7 +903,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -751,7 +914,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -784,7 +948,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -794,7 +959,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -827,7 +993,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -837,7 +1004,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -875,7 +1043,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -885,7 +1054,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 1"
         },
         {
           "index": 2,
@@ -895,7 +1065,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 2"
         },
         {
           "index": 3,
@@ -905,7 +1076,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 3"
         }
       ]
     },
@@ -938,7 +1110,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -948,7 +1121,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -981,7 +1155,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -991,7 +1166,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 1"
         },
         {
           "index": 2,
@@ -1001,7 +1177,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 2"
         },
         {
           "index": 3,
@@ -1011,7 +1188,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 3"
         }
       ]
     },
@@ -1045,7 +1223,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "Background"
         },
         {
           "index": 1,
@@ -1055,7 +1234,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 1"
         },
         {
           "index": 2,
@@ -1065,7 +1245,8 @@
             184,
             76,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 2"
         },
         {
           "index": 3,
@@ -1075,7 +1256,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Task-defined class 3"
         }
       ]
     },
@@ -1108,7 +1290,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -1118,7 +1301,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -1152,7 +1336,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No lesion"
         },
         {
           "index": 1,
@@ -1162,7 +1347,8 @@
             66,
             120,
             255
-          ]
+          ],
+          "meaning": "Spinal cord lesion"
         }
       ]
     },
@@ -1195,7 +1381,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -1205,7 +1392,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     },
@@ -1238,7 +1426,8 @@
             0,
             0,
             0
-          ]
+          ],
+          "meaning": "No spinal cord"
         },
         {
           "index": 1,
@@ -1248,7 +1437,8 @@
             128,
             255,
             255
-          ]
+          ],
+          "meaning": "Spinal cord segmentation"
         }
       ]
     }

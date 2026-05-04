@@ -31,7 +31,7 @@ assert.deepEqual(liveIds, manifestIds, `Task ID set differs.\n  manifest.json on
 // Per-task fields that must match. We only check fields that the runtime uses
 // for inference; UI-only labels/descriptions are derived in sct-tasks.js and
 // rebuilt in the manifest, so we don't enforce strict equality on those.
-const TASK_FIELDS = ['supportStatus', 'validationStatus', 'processingOnly'];
+const TASK_FIELDS = ['supportStatus', 'validationStatus', 'processingOnly', 'outputType', 'outputStages'];
 
 // Per-asset fields that the worker reads. Drift here causes silent runtime
 // regressions even when fixture tests (which read manifest.json) stay green.
@@ -39,8 +39,11 @@ const ASSET_FIELDS = [
   'id',
   'filename',
   'checksum',
+  'sizeBytes',
   'patchSize',
   'preprocessing',
+  'modelOrientation',
+  'output',
   'inferenceDefaults',
   'browserFormat',
   'conversionStatus'

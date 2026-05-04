@@ -208,12 +208,33 @@ export class InferenceExecutor {
       this.stageOrder.push(data.stage);
     }
 
-    const blob = new Blob([data.niftiData], { type: 'application/octet-stream' });
     const taskId = data.taskId || this.currentTaskId || 'sct';
+    if (data.kind === 'metrics') {
+      const csv = data.csv || '';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const file = new File([blob], data.filename || `${taskId}_${data.stage}.csv`, { type: 'text/csv' });
+      this.results[data.stage] = {
+        file,
+        description: data.description,
+        kind: 'metrics',
+        rows: data.rows || [],
+        summary: data.summary || null,
+        csv
+      };
+
+      Promise.resolve(this.onStageData(data)).catch(err => {
+        console.error('Error handling stage data:', err);
+        this.updateOutput(`Error displaying ${data.stage}: ${err.message}`);
+      });
+      return;
+    }
+
+    const blob = new Blob([data.niftiData], { type: 'application/octet-stream' });
     const file = new File([blob], `${taskId}_${data.stage}.nii`, { type: 'application/octet-stream' });
     this.results[data.stage] = {
       file: file,
-      description: data.description
+      description: data.description,
+      kind: 'nifti'
     };
 
     Promise.resolve(this.onStageData(data)).catch(err => {

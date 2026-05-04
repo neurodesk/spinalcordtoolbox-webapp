@@ -47,7 +47,9 @@ export const PROGRESS_CONFIG = {
 export const STAGE_NAMES = {
   'input': 'Input',
   'segmentation': 'SCT Segmentation',
-  'vertebrae': 'Vertebral Labels'
+  'lesion': 'SCI Lesion',
+  'vertebrae': 'Vertebral Labels',
+  'lesion_metrics': 'Lesion Metrics'
 };
 
 export const ONNX_CONFIG = {

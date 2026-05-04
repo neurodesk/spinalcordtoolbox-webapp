@@ -205,6 +205,19 @@ input[type="range"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .volume-toggle .download-btn { padding: var(--space-xs); background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-muted); cursor: pointer; opacity: 0.6; transition: all var(--transition-fast); display: flex; align-items: center; margin-left: auto; }
 .volume-toggle .download-btn:hover { opacity: 1; border-color: var(--color-border-light); }
 .volume-toggle .download-btn svg { width: 12px; height: 12px; }
+.metrics-results { margin-top: var(--space-sm); border-top: 1px solid var(--color-border); padding-top: var(--space-sm); }
+.metrics-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: var(--space-sm); }
+.metrics-summary-item { background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 6px; min-width: 0; }
+.metrics-summary-label { display: block; font-size: 0.68rem; color: var(--color-text-muted); }
+.metrics-summary-value { display: block; font-size: 0.88rem; color: var(--color-text); overflow-wrap: anywhere; }
+.metrics-table-wrapper { overflow-x: auto; max-height: 220px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.metrics-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; min-width: 520px; }
+.metrics-table th,
+.metrics-table td { padding: 5px 6px; border-bottom: 1px solid var(--color-border); text-align: right; white-space: nowrap; }
+.metrics-table th:first-child,
+.metrics-table td:first-child { text-align: left; }
+.metrics-table th { color: var(--color-text-muted); font-weight: 500; background: var(--color-surface); position: sticky; top: 0; }
+.metrics-table tr:last-child td { border-bottom: 0; }
 
 .header-links { display: flex; align-items: center; gap: var(--space-sm); }
 .header-link { color: white; text-decoration: none; display: flex; align-items: center; gap: var(--space-xs); background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); transition: opacity 0.15s; opacity: 0.8; font-size: 0.85rem; font-weight: 500; }

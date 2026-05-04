@@ -145,21 +145,26 @@ function makeFile(name) {
   const viewer = new ViewerController({ nv });
   const input = makeFile('input_multi.nii');
   const seg = makeFile('seg_multi.nii');
+  const lesion = makeFile('lesion_multi.nii');
   const vertebrae = makeFile('vertebrae_multi.nii');
 
   await viewer.loadBaseVolume(input, { stage: 'input' });
   await viewer.loadOverlay(seg, 'sct-spinalcord', 0.45, { stage: 'segmentation' });
+  await viewer.loadOverlay(lesion, 'sct-lesion', 0.45, { stage: 'lesion' });
   await viewer.loadOverlay(vertebrae, 'sct-vertebrae', 0.45, { stage: 'vertebrae' });
   viewer.setOverlayOpacity(0.8);
 
-  assert.equal(nv.volumes.length, 3);
+  assert.equal(nv.volumes.length, 4);
   assert.equal(nv.volumes[0].name, 'input_multi.nii');
   assert.equal(nv.volumes[1].colormap, 'sct-spinalcord');
-  assert.equal(nv.volumes[2].colormap, 'sct-vertebrae');
+  assert.equal(nv.volumes[2].colormap, 'sct-lesion');
+  assert.equal(nv.volumes[3].colormap, 'sct-vertebrae');
   assert.equal(nv.volumes[1].opacity, 0.8);
   assert.equal(nv.volumes[2].opacity, 0.8);
+  assert.equal(nv.volumes[3].opacity, 0.8);
   assert.equal(viewer.getVolumeIndexForStage('segmentation'), 1);
-  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 2);
+  assert.equal(viewer.getVolumeIndexForStage('lesion'), 2);
+  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 3);
 }
 
 {
@@ -167,23 +172,28 @@ function makeFile(name) {
   const viewer = new ViewerController({ nv });
   const input = makeFile('input_stack.nii');
   const seg = makeFile('seg_stack.nii');
+  const lesion = makeFile('lesion_stack.nii');
   const vertebrae = makeFile('vertebrae_stack.nii');
 
   await viewer.loadVolumeStack([
     { file: input, stage: 'input' },
     { file: seg, stage: 'segmentation', colormap: 'sct-spinalcord', opacity: 0.7, labelMask: true },
+    { file: lesion, stage: 'lesion', colormap: 'sct-lesion', opacity: 0.7, labelMask: true },
     { file: vertebrae, stage: 'vertebrae', colormap: 'sct-vertebrae', opacity: 0.7, labelMask: true }
   ]);
 
-  assert.equal(nv.volumes.length, 3);
+  assert.equal(nv.volumes.length, 4);
   assert.equal(nv.volumes[0].name, 'input_stack.nii');
   assert.equal(nv.volumes[1].colormap, 'sct-spinalcord');
-  assert.equal(nv.volumes[2].colormap, 'sct-vertebrae');
+  assert.equal(nv.volumes[2].colormap, 'sct-lesion');
+  assert.equal(nv.volumes[3].colormap, 'sct-vertebrae');
   assert.equal(nv.volumes[1].opacity, 0.7);
   assert.equal(nv.volumes[2].opacity, 0.7);
+  assert.equal(nv.volumes[3].opacity, 0.7);
   assert.equal(viewer.getVolumeIndexForStage('input'), 0);
   assert.equal(viewer.getVolumeIndexForStage('segmentation'), 1);
-  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 2);
+  assert.equal(viewer.getVolumeIndexForStage('lesion'), 2);
+  assert.equal(viewer.getVolumeIndexForStage('vertebrae'), 3);
 
   // Regression: NiiVue 0.68.x silently fails to render binary/label overlays
   // when multiple volumes are loaded in a single `loadVolumes([...])` call
@@ -195,9 +205,10 @@ function makeFile(name) {
   assert.equal(nv.loadVolumesCalls.length, 1, 'loadVolumeStack must call nv.loadVolumes exactly once (for the base)');
   assert.equal(nv.loadVolumesCalls[0].length, 1, 'nv.loadVolumes must receive exactly one volume (the base)');
   assert.equal(nv.loadVolumesCalls[0][0].name, 'input_stack.nii');
-  assert.equal(nv.addVolumeFromUrlCalls.length, 2, 'each overlay must be added via addVolumeFromUrl');
+  assert.equal(nv.addVolumeFromUrlCalls.length, 3, 'each overlay must be added via addVolumeFromUrl');
   assert.equal(nv.addVolumeFromUrlCalls[0].colormap, 'sct-spinalcord');
-  assert.equal(nv.addVolumeFromUrlCalls[1].colormap, 'sct-vertebrae');
+  assert.equal(nv.addVolumeFromUrlCalls[1].colormap, 'sct-lesion');
+  assert.equal(nv.addVolumeFromUrlCalls[2].colormap, 'sct-vertebrae');
 }
 
 console.log('ViewerController tests passed');

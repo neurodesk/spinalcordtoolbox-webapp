@@ -257,15 +257,98 @@ export const SCT_TASKS = [
     id: 'lesion_sci_t2',
     displayName: 'SCI lesion T2',
     category: 'pathology',
-    description: 'Spinal cord injury lesion segmentation for T2-weighted data.',
+    description: 'SCIsegV2 spinal cord and spinal cord injury lesion segmentation for T2-weighted data.',
     inputContrasts: ['T2w'],
     requiredInputs: [{ role: 'image', contrast: 'T2w spinal cord injury MRI' }],
-    outputType: 'binary-mask',
+    outputType: 'multi-label-mask',
     labelSet: 'lesion',
-    supportStatus: TASK_STATUS.UNSUPPORTED,
-    validationStatus: 'not-run',
-    unsupportedReason: 'Not yet converted or validated for browser execution.',
-    modelAssets: []
+    supportStatus: TASK_STATUS.SUPPORTED,
+    validationStatus: 'passed',
+    validationSummary: 'Converted SCT SCIsegV2 r20240729 region-based nnUNet package to a single ONNX asset and validated browser region post-processing plus lesion-analysis metrics with regression tests.',
+    outputStages: [
+      {
+        id: 'segmentation',
+        kind: 'nifti',
+        labelSet: 'spinalcord',
+        sourceRegion: 'sc',
+        sourceLabels: [1, 2],
+        outputSuffix: '_sc_seg'
+      },
+      {
+        id: 'lesion',
+        kind: 'nifti',
+        labelSet: 'lesion',
+        sourceRegion: 'lesion',
+        sourceLabels: [2],
+        outputSuffix: '_lesion_seg'
+      },
+      {
+        id: 'lesion_metrics',
+        kind: 'metrics',
+        derivedFrom: ['segmentation', 'lesion'],
+        outputSuffix: '_lesion_metrics.csv'
+      }
+    ],
+    modelAssets: [
+      {
+        id: 'sct-lesion-sci-t2',
+        sourceUrl: 'https://github.com/ivadomed/model_seg_sci/releases/download/r20240729/model_SCIsegV2_r20240729.zip',
+        sourceVersion: 'r20240729',
+        sourceFormat: 'SCT SCIsegV2 nnUNet region package',
+        browserFormat: 'onnx',
+        filename: 'sct-lesion-sci-t2.onnx',
+        conversionStatus: 'converted',
+        checksum: 'sha256:3b28b46ac85345fd33f0ce393c6538370794fe9b5d1ffedeb5df88891bfa1cdb',
+        sizeBytes: 123451938,
+        modelOrientation: 'RPI',
+        patchSize: [128, 192, 96],
+        preprocessing: {
+          modelOrientation: 'RPI',
+          modelAxisOrder: 'zyx',
+          targetSpacing: [0.6875, 0.5077999234199524, 0.68751]
+        },
+        output: {
+          activation: 'sigmoid-regions',
+          channelCount: 2,
+          channelOrder: ['sc', 'lesion'],
+          datasetLabels: {
+            background: 0,
+            sc: [1, 2],
+            lesion: 2
+          },
+          classMap: [
+            { stage: 'segmentation', sourceRegion: 'sc', sourceLabels: [1, 2], outputLabel: 1 },
+            { stage: 'lesion', sourceRegion: 'lesion', sourceLabels: [2], outputLabel: 1 }
+          ],
+          regions: [
+            {
+              name: 'sc',
+              stage: 'segmentation',
+              channel: 0,
+              sourceLabels: [1, 2],
+              outputLabel: 1,
+              threshold: 0.5,
+              description: 'SCIsegV2 spinal cord segmentation'
+            },
+            {
+              name: 'lesion',
+              stage: 'lesion',
+              channel: 1,
+              sourceLabels: [2],
+              outputLabel: 1,
+              threshold: 0.5,
+              description: 'SCIsegV2 lesion segmentation'
+            }
+          ],
+          metricsStage: 'lesion_metrics'
+        },
+        inferenceDefaults: {
+          probabilityThreshold: 0.5,
+          minComponentSize: 1,
+          testTimeAugmentation: false
+        }
+      }
+    ]
   },
   {
     id: 'lesion_ms',
@@ -466,7 +549,8 @@ export function taskToManifestTask(task) {
   const labels = getTaskLabels(task).map(label => ({
     index: label.index,
     name: label.name,
-    rgba: label.rgba || label.color
+    rgba: label.rgba || label.color,
+    meaning: label.meaning || label.name
   }));
   const modelAssets = (task.modelAssets || []).map(asset => ({
     ...asset,

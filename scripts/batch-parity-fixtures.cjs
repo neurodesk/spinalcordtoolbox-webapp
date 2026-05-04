@@ -33,6 +33,24 @@ const FIXTURE_CASES = Object.freeze([
     tolerancePolicy: DEFAULT_NIFTI_POLICY
   },
   {
+    id: 'batch_t2_deepseg_lesion_sci_t2',
+    batchStep: { section: 't2', sourceLine: null },
+    externalReference: 'spinalcordtoolbox/sct_testing_data:t2/t2_fake_lesion',
+    inputPath: 'test_data/batch_t2_deepseg_lesion_sci_t2/input.nii.gz',
+    expectedOutputPath: 'test_data/batch_t2_deepseg_lesion_sci_t2/batch_output_sc.nii.gz',
+    expectedOutputPaths: {
+      segmentation: 'test_data/batch_t2_deepseg_lesion_sci_t2/batch_output_sc.nii.gz',
+      lesion: 'test_data/batch_t2_deepseg_lesion_sci_t2/batch_output_lesion.nii.gz'
+    },
+    browserOutputPaths: {
+      segmentation: 'test_data/batch_t2_deepseg_lesion_sci_t2/browser_output_sc.nii.gz',
+      lesion: 'test_data/batch_t2_deepseg_lesion_sci_t2/browser_output_lesion.nii.gz'
+    },
+    producedOutputName: 'batch_output_sc.nii.gz',
+    outputType: 'multi-nifti',
+    tolerancePolicy: DEFAULT_NIFTI_POLICY
+  },
+  {
     id: 'batch_t2s_deepseg_spinalcord',
     batchStep: { section: 't2s', sourceLine: 114 },
     inputPath: 'test_data/batch_t2s_deepseg_spinalcord/input.nii.gz',

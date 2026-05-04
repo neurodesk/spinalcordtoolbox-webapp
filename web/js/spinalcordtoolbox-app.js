@@ -42,6 +42,7 @@ class SpinalCordToolboxApp {
     this._stageVisibility = {
       input: true,
       segmentation: true,
+      lesion: true,
       vertebrae: true
     };
     this._renderViewerPromise = Promise.resolve();
@@ -96,6 +97,8 @@ class SpinalCordToolboxApp {
 
     // Register colormap after viewer is ready
     this.viewerController.registerSctColormap(colormapData, this.getSelectedColormapId());
+    this.viewerController.registerSctColormap(generateNiivueColormap('spinalcord'), 'sct-spinalcord');
+    this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
     this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
 
     this.setupEventListeners();
@@ -142,9 +145,7 @@ class SpinalCordToolboxApp {
       const labelIndex = Math.round(rawValue);
       if (labelIndex <= 0) continue;
 
-      const taskId = stage === 'vertebrae'
-        ? 'vertebrae'
-        : (this.selectedTask?.id || DEFAULT_TASK_ID);
+      const taskId = this.getOverlayLabelTaskId(stage);
       return getLabelName(labelIndex, taskId);
     }
 
@@ -337,6 +338,13 @@ class SpinalCordToolboxApp {
 
   getSelectedColormapId() {
     return `sct-${this.selectedTask?.id || DEFAULT_TASK_ID}`;
+  }
+
+  getOverlayLabelTaskId(stage) {
+    if (stage === 'vertebrae') return 'vertebrae';
+    if (stage === 'lesion') return 'lesion_sci_t2';
+    if (stage === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') return 'spinalcord';
+    return this.selectedTask?.id || DEFAULT_TASK_ID;
   }
 
   setupDropZone() {
@@ -808,6 +816,7 @@ class SpinalCordToolboxApp {
       modelName: selectedAsset?.filename || Config.MODEL.name,
       patchSize: effectivePatchSize,
       preprocessing: selectedAsset?.preprocessing || {},
+      output: selectedAsset?.output || {},
       testTimeAugmentation: !!document.getElementById('ttaToggle')?.checked,
       modelBaseUrl
     });
@@ -1023,9 +1032,10 @@ class SpinalCordToolboxApp {
 
   applyDefaultBaseColormap() {
     const colormapSelect = document.getElementById('colormapSelect');
-    const colormap = this.currentResultTab === 'vertebrae'
-      ? 'sct-vertebrae'
-      : (colormapSelect?.value || 'gray');
+    let colormap = colormapSelect?.value || 'gray';
+    if (this.currentResultTab === 'vertebrae') colormap = 'sct-vertebrae';
+    if (this.currentResultTab === 'lesion') colormap = 'sct-lesion';
+    if (this.currentResultTab === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') colormap = 'sct-spinalcord';
     if (!this.nv.volumes?.length) return;
     this.nv.volumes[0].colormap = colormap;
     this.nv.updateGLVolume();
@@ -1151,16 +1161,23 @@ class SpinalCordToolboxApp {
       if (data.stage === 'vertebrae') {
         this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
       }
+      if (data.stage === 'lesion') {
+        this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
+      }
       this.setStageVisible(data.stage, true);
       this.setStageVisible('input', true);
       const overlayControl = document.getElementById('overlayControl');
       if (overlayControl) overlayControl.classList.remove('hidden');
       await this.renderViewerVolumes();
+    } else if (data.kind === 'metrics') {
+      this.currentResultTab = data.stage;
+      this.renderMetricsResult(data.stage);
     } else {
       const result = this.inferenceExecutor.getResult(data.stage);
       if (result?.file) {
         this.currentResultTab = data.stage;
         this.setStageVisible('input', true);
+        this.clearMetricsResult();
         await this.renderViewerVolumes();
       }
     }
@@ -1232,12 +1249,120 @@ class SpinalCordToolboxApp {
     }
   }
 
+  formatMetric(value) {
+    if (value === null || value === undefined || value === '') return '';
+    if (!Number.isFinite(Number(value))) return String(value);
+    const number = Number(value);
+    return Number.isInteger(number) ? String(number) : number.toFixed(3).replace(/\.?0+$/, '');
+  }
+
+  clearMetricsResult() {
+    const panel = document.getElementById('metricsResults');
+    if (!panel) return;
+    panel.innerHTML = '';
+    panel.classList.add('hidden');
+  }
+
+  renderMetricsResult(stage) {
+    const panel = document.getElementById('metricsResults');
+    const result = this.inferenceExecutor.getResult(stage);
+    if (!panel || result?.kind !== 'metrics') {
+      this.clearMetricsResult();
+      return;
+    }
+
+    const summary = result.summary || {};
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const tableColumns = [
+      'lesion_id',
+      'volume_mm3',
+      'length_mm',
+      'max_width_mm',
+      'max_axial_damage_ratio',
+      'dorsal_bridge_width_mm',
+      'ventral_bridge_width_mm',
+      'total_bridge_width_mm'
+    ];
+    const labelMap = {
+      lesion_id: 'Lesion',
+      volume_mm3: 'Volume mm3',
+      length_mm: 'Length mm',
+      max_width_mm: 'Width mm',
+      max_axial_damage_ratio: 'Damage',
+      dorsal_bridge_width_mm: 'Dorsal mm',
+      ventral_bridge_width_mm: 'Ventral mm',
+      total_bridge_width_mm: 'Bridge mm'
+    };
+
+    panel.innerHTML = '';
+    panel.classList.remove('hidden');
+
+    const summaryGrid = document.createElement('div');
+    summaryGrid.className = 'metrics-summary';
+    [
+      ['Lesions', summary.lesion_count],
+      ['Volume mm3', summary.total_volume_mm3],
+      ['Length mm', summary.total_length_mm],
+      ['Max width mm', summary.max_width_mm]
+    ].forEach(([label, value]) => {
+      const item = document.createElement('div');
+      item.className = 'metrics-summary-item';
+      const labelEl = document.createElement('span');
+      labelEl.className = 'metrics-summary-label';
+      labelEl.textContent = label;
+      const valueEl = document.createElement('span');
+      valueEl.className = 'metrics-summary-value';
+      valueEl.textContent = this.formatMetric(value);
+      item.appendChild(labelEl);
+      item.appendChild(valueEl);
+      summaryGrid.appendChild(item);
+    });
+    panel.appendChild(summaryGrid);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'metrics-table-wrapper';
+    const table = document.createElement('table');
+    table.className = 'metrics-table';
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    for (const column of tableColumns) {
+      const th = document.createElement('th');
+      th.textContent = labelMap[column] || column;
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      for (const column of tableColumns) {
+        const td = document.createElement('td');
+        td.textContent = this.formatMetric(row[column]);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+    panel.appendChild(wrapper);
+  }
+
   async viewStage(stage) {
+    const result = stage === 'input' ? null : this.inferenceExecutor.getResult(stage);
+    if (result?.kind === 'metrics') {
+      this.currentResultTab = stage;
+      this.renderMetricsResult(stage);
+      this.syncResultViewButtons();
+      return;
+    }
+
     const file = stage === 'input'
       ? this.inputFile
-      : this.inferenceExecutor.getResult(stage)?.file;
+      : result?.file;
     if (!file) return;
 
+    this.clearMetricsResult();
     await this.viewerController.loadBaseVolume(file);
     this.currentResultTab = stage;
     this.setStageVisible('input', true);
@@ -1265,15 +1390,19 @@ class SpinalCordToolboxApp {
   getCurrentBaseFile() {
     if (this.currentResultTab === 'input') return this.inputFile;
     if (this.isOverlayStage(this.currentResultTab)) return this.inputFile;
-    return this.inferenceExecutor.getResult(this.currentResultTab)?.file || this.inputFile;
+    const result = this.inferenceExecutor.getResult(this.currentResultTab);
+    if (result?.kind === 'metrics') return this.inputFile;
+    return result?.file || this.inputFile;
   }
 
   isOverlayStage(stage) {
-    return stage === 'segmentation' || stage === 'vertebrae';
+    return stage === 'segmentation' || stage === 'lesion' || stage === 'vertebrae';
   }
 
   getOverlayColormapId(stage) {
     if (stage === 'vertebrae') return 'sct-vertebrae';
+    if (stage === 'lesion') return 'sct-lesion';
+    if (stage === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') return 'sct-spinalcord';
     return this.getSelectedColormapId();
   }
 
@@ -1281,6 +1410,7 @@ class SpinalCordToolboxApp {
     return {
       input: true,
       segmentation: true,
+      lesion: true,
       vertebrae: true
     };
   }
@@ -1302,7 +1432,7 @@ class SpinalCordToolboxApp {
   }
 
   getVisibleOverlayStages() {
-    return ['segmentation', 'vertebrae'].filter(stage => (
+    return ['segmentation', 'lesion', 'vertebrae'].filter(stage => (
       this.isStageVisible(stage) && this.inferenceExecutor.hasResult(stage)
     ));
   }
@@ -1450,6 +1580,7 @@ class SpinalCordToolboxApp {
   disableAllResultTabs() {
     const container = document.getElementById('stageButtons');
     if (container) container.innerHTML = '';
+    this.clearMetricsResult();
     this.viewerController.clearVolumes();
     this.resetStageVisibility();
     this._overlaySliderValue = 0.7;

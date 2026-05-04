@@ -165,7 +165,8 @@
     return result;
   }
 
-  function accumulatePatch3D(probAccum, weightAccum, volumeDims, position, output, weights, patchDims) {
+  function accumulatePatch3D(probAccum, weightAccum, volumeDims, position, output, weights, patchDims, updateWeights) {
+    updateWeights = updateWeights !== false;
     const [v0, v1] = volumeDims;
     const [p0, p1, p2] = patchDims;
     const [o0, o1, o2] = position;
@@ -182,7 +183,7 @@
           const globalIdx = g0 + g1 * v0 + g2 * v0 * v1;
           const w = weights[patchIdx];
           probAccum[globalIdx] += output[patchIdx] * w;
-          weightAccum[globalIdx] += w;
+          if (updateWeights) weightAccum[globalIdx] += w;
         }
       }
     }
@@ -194,6 +195,143 @@
       out[i] = 1 / (1 + Math.exp(-logits[i]));
     }
     return out;
+  }
+
+  function sigmoidChannels(logits, channelCount) {
+    const voxelCount = Math.floor(logits.length / channelCount);
+    if (voxelCount * channelCount !== logits.length) {
+      throw new Error(`Channel-major logits length ${logits.length} is not divisible by channelCount=${channelCount}`);
+    }
+    const out = new Float32Array(logits.length);
+    for (let i = 0; i < logits.length; i++) {
+      out[i] = 1 / (1 + Math.exp(-logits[i]));
+    }
+    return out;
+  }
+
+  function softmaxChannels(logits, channelCount) {
+    const voxelCount = Math.floor(logits.length / channelCount);
+    if (voxelCount * channelCount !== logits.length) {
+      throw new Error(`Channel-major logits length ${logits.length} is not divisible by channelCount=${channelCount}`);
+    }
+    const out = new Float32Array(logits.length);
+    for (let i = 0; i < voxelCount; i++) {
+      let maxLogit = -Infinity;
+      for (let c = 0; c < channelCount; c++) {
+        const value = logits[c * voxelCount + i];
+        if (value > maxLogit) maxLogit = value;
+      }
+      let sum = 0;
+      for (let c = 0; c < channelCount; c++) {
+        const expValue = Math.exp(logits[c * voxelCount + i] - maxLogit);
+        out[c * voxelCount + i] = expValue;
+        sum += expValue;
+      }
+      const denom = sum || 1;
+      for (let c = 0; c < channelCount; c++) {
+        out[c * voxelCount + i] /= denom;
+      }
+    }
+    return out;
+  }
+
+  function argmaxLabelsFromChannels(probabilities, channelCount, labels) {
+    const voxelCount = Math.floor(probabilities.length / channelCount);
+    if (voxelCount * channelCount !== probabilities.length) {
+      throw new Error(`Channel-major probability length ${probabilities.length} is not divisible by channelCount=${channelCount}`);
+    }
+    const classLabels = labels || Array.from({ length: channelCount }, (_, i) => i);
+    const result = new Uint8Array(voxelCount);
+    for (let i = 0; i < voxelCount; i++) {
+      let bestChannel = 0;
+      let bestProbability = probabilities[i];
+      for (let c = 1; c < channelCount; c++) {
+        const p = probabilities[c * voxelCount + i];
+        if (p > bestProbability) {
+          bestProbability = p;
+          bestChannel = c;
+        }
+      }
+      result[i] = classLabels[bestChannel] == null ? bestChannel : classLabels[bestChannel];
+    }
+    return result;
+  }
+
+  function splitLabelsByClassMap(labels, classMap) {
+    const outputs = {};
+    for (const entry of classMap || []) {
+      const stage = entry.stage || entry.name;
+      const sourceLabels = new Set(entry.labels || entry.sourceLabels || []);
+      const mask = new Uint8Array(labels.length);
+      for (let i = 0; i < labels.length; i++) {
+        if (sourceLabels.has(labels[i])) mask[i] = 1;
+      }
+      outputs[stage] = mask;
+    }
+    return outputs;
+  }
+
+  function flipChannelMajorPatch3D(data, dims, channelCount, axes) {
+    const patchVoxels = dims[0] * dims[1] * dims[2];
+    if (patchVoxels * channelCount !== data.length) {
+      throw new Error(`Channel-major patch length ${data.length} does not match ${channelCount} channels x ${patchVoxels} voxels`);
+    }
+    const result = new Float32Array(data.length);
+    for (let c = 0; c < channelCount; c++) {
+      const start = c * patchVoxels;
+      const flipped = flipPatch3D(data.subarray(start, start + patchVoxels), dims, axes);
+      result.set(flipped, start);
+    }
+    return result;
+  }
+
+  function accumulateChannelMajorPatch3D(channelAccums, weightAccum, volumeDims, position, probabilities, weights, patchDims) {
+    const channelCount = channelAccums.length;
+    const patchVoxels = patchDims[0] * patchDims[1] * patchDims[2];
+    if (probabilities.length !== channelCount * patchVoxels) {
+      throw new Error(`Expected ${channelCount * patchVoxels} probabilities, got ${probabilities.length}`);
+    }
+    for (let c = 0; c < channelCount; c++) {
+      const start = c * patchVoxels;
+      accumulatePatch3D(
+        channelAccums[c],
+        weightAccum,
+        volumeDims,
+        position,
+        probabilities.subarray(start, start + patchVoxels),
+        weights,
+        patchDims,
+        c === 0
+      );
+    }
+  }
+
+  function summarizeChannelMajorPatch(logits, probabilities, patch, patchVoxels, channelCount, threshold, pos) {
+    const channels = [];
+    let inMin = Infinity, inMax = -Infinity, inMean = 0;
+    for (let i = 0; i < patchVoxels; i++) {
+      if (patch[i] < inMin) inMin = patch[i];
+      if (patch[i] > inMax) inMax = patch[i];
+      inMean += patch[i];
+    }
+    inMean /= patchVoxels;
+    for (let c = 0; c < channelCount; c++) {
+      const start = c * patchVoxels;
+      let pMin = Infinity, pMax = -Infinity, pMean = 0, pAbove = 0;
+      let oMin = Infinity, oMax = -Infinity;
+      for (let i = 0; i < patchVoxels; i++) {
+        const p = probabilities[start + i];
+        const o = logits[start + i];
+        if (p < pMin) pMin = p;
+        if (p > pMax) pMax = p;
+        if (o < oMin) oMin = o;
+        if (o > oMax) oMax = o;
+        pMean += p;
+        if (p >= threshold) pAbove++;
+      }
+      channels.push({ channel: c, oMin, oMax, pMin, pMax, pMean: pMean / patchVoxels, pAbove });
+    }
+    return { pos, inMin, inMax, inMean, channels };
   }
 
   function connectedComponents3D(binaryMask, dims) {
@@ -441,8 +579,163 @@
     return { labels: outputLabels, preCleanupLabels, dims: prePadDims, probStats };
   }
 
+  /**
+   * Run sliding-window inference for region/channel outputs.
+   *
+   * The ONNX output is expected to be channel-major [1, C, x, y, z]. Each
+   * configured region points to a source channel and is emitted as its own
+   * binary label mask. This matches nnU-Net region training packages such as
+   * SCT SCIsegV2, where spinal cord is one sigmoid region and lesion is a
+   * second sigmoid region.
+   */
+  async function runRegionInferencePipeline(input, runPatch, options) {
+    options = options || {};
+    const overlap = options.overlap != null ? options.overlap : 0;
+    const threshold = options.threshold != null ? options.threshold : 0.5;
+    const minComponentSize = options.minComponentSize != null ? options.minComponentSize : 10;
+    const testTimeAugmentation = !!options.testTimeAugmentation;
+    const normalizeInput = options.normalizeInput !== false;
+    const channelCount = Number(options.channelCount || options.channels || 1);
+    const regionConfigs = (options.regions && options.regions.length > 0)
+      ? options.regions
+      : Array.from({ length: channelCount }, (_, channel) => ({ name: `channel_${channel}`, stage: `channel_${channel}`, channel }));
+    const onLog = options.onLog || (() => {});
+    const onProgress = options.onProgress || (() => {});
+    const onPatchStats = options.onPatchStats || (() => {});
+
+    let currentData = input.data;
+    let currentDims = [...input.dims];
+    const patchSize = input.patchSize;
+    const [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2] = patchSize;
+    const patchDims = [PATCH_DIM0, PATCH_DIM1, PATCH_DIM2];
+
+    if (normalizeInput) {
+      onLog('Z-score normalizing (all voxels)...');
+      currentData = zScoreNormalize(currentData);
+    }
+
+    const prePadDims = [...currentDims];
+    const padded = zeroPadToPatchMultiple(currentData, currentDims, patchDims);
+    if (padded.dims[0] !== currentDims[0] || padded.dims[1] !== currentDims[1] || padded.dims[2] !== currentDims[2]) {
+      onLog(`Padded: ${currentDims.join('x')} -> ${padded.dims.join('x')} (zero-pad)`);
+      currentData = padded.data;
+      currentDims = padded.dims;
+    }
+    const processingDims = [...currentDims];
+
+    const gaussianWeights = computeGaussianWeightMap3D(PATCH_DIM0, PATCH_DIM1, PATCH_DIM2, 8);
+    const positions = computePatchPositions3D(currentDims, patchDims, overlap);
+    const totalPatches = positions.length;
+    onLog(`Starting region inference: ${totalPatches} patches (${PATCH_DIM0}x${PATCH_DIM1}x${PATCH_DIM2}), channels=${channelCount}, overlap=${overlap}, TTA=${testTimeAugmentation ? 'on' : 'off'}`);
+
+    const totalVoxels = currentDims[0] * currentDims[1] * currentDims[2];
+    const channelAccums = Array.from({ length: channelCount }, () => new Float32Array(totalVoxels));
+    const weightAccum = new Float32Array(totalVoxels);
+    const patchVoxels = PATCH_DIM0 * PATCH_DIM1 * PATCH_DIM2;
+    const ttaStepsPerPatch = testTimeAugmentation ? (TTA_AXES.length + 1) : 1;
+    const totalSteps = totalPatches * ttaStepsPerPatch;
+    let stepsDone = 0;
+    onProgress(0, totalSteps, `Running inference: ${totalPatches} patch${totalPatches > 1 ? 'es' : ''}${testTimeAugmentation ? ' x8 TTA' : ''}...`);
+
+    for (let pi = 0; pi < totalPatches; pi++) {
+      const pos = positions[pi];
+      const patch = extractPatch3D(currentData, currentDims, pos, patchDims);
+
+      const logits = await runPatch(patch, patchDims);
+      let probabilities = sigmoidChannels(logits, channelCount);
+      stepsDone++;
+      onProgress(stepsDone, totalSteps, testTimeAugmentation
+        ? `Patch ${pi + 1}/${totalPatches} TTA 1/${ttaStepsPerPatch}`
+        : `Patch ${pi + 1}/${totalPatches}`);
+
+      if (testTimeAugmentation) {
+        const probabilitySum = new Float32Array(probabilities);
+        let ttaIdx = 1;
+        for (const axes of TTA_AXES) {
+          const flippedPatch = flipPatch3D(patch, patchDims, axes);
+          const ttaLogits = await runPatch(flippedPatch, patchDims);
+          const ttaProbs = sigmoidChannels(ttaLogits, channelCount);
+          const unflipped = flipChannelMajorPatch3D(ttaProbs, patchDims, channelCount, axes);
+          for (let i = 0; i < probabilitySum.length; i++) probabilitySum[i] += unflipped[i];
+          ttaIdx++;
+          stepsDone++;
+          onProgress(stepsDone, totalSteps, `Patch ${pi + 1}/${totalPatches} TTA ${ttaIdx}/${ttaStepsPerPatch}`);
+        }
+        probabilities = probabilitySum;
+        const ttaCount = TTA_AXES.length + 1;
+        for (let i = 0; i < probabilities.length; i++) probabilities[i] /= ttaCount;
+      }
+
+      if (pi < 5) {
+        onPatchStats(pi, summarizeChannelMajorPatch(logits, probabilities, patch, patchVoxels, channelCount, threshold, pos));
+      }
+
+      accumulateChannelMajorPatch3D(channelAccums, weightAccum, currentDims, pos, probabilities, gaussianWeights, patchDims);
+    }
+
+    const channelProbStats = [];
+    for (let c = 0; c < channelCount; c++) {
+      let probMin = Infinity, probMax = -Infinity, probSum = 0, probAboveThresh = 0;
+      for (let i = 0; i < totalVoxels; i++) {
+        const p = weightAccum[i] > 0 ? channelAccums[c][i] / weightAccum[i] : 0;
+        if (p < probMin) probMin = p;
+        if (p > probMax) probMax = p;
+        probSum += p;
+        if (p >= threshold) probAboveThresh++;
+      }
+      const stats = { channel: c, min: probMin, max: probMax, mean: probSum / totalVoxels, voxelsAboveThreshold: probAboveThresh };
+      channelProbStats.push(stats);
+      onLog(`Region channel ${c} prob map (padded ${currentDims.join('x')}): range=[${probMin.toFixed(4)},${probMax.toFixed(4)}], mean=${stats.mean.toFixed(6)}, voxels>=${threshold}=${probAboveThresh}`);
+    }
+
+    const regions = [];
+    for (const region of regionConfigs) {
+      const channel = Number(region.channel ?? 0);
+      if (channel < 0 || channel >= channelCount) {
+        throw new Error(`Region "${region.name || region.stage}" references channel ${channel}, but channelCount=${channelCount}`);
+      }
+      const regionThreshold = region.threshold != null ? Number(region.threshold) : threshold;
+      const regionMinComponentSize = region.minComponentSize != null ? Number(region.minComponentSize) : minComponentSize;
+      const binaryMask = new Uint8Array(totalVoxels);
+      for (let i = 0; i < totalVoxels; i++) {
+        if (weightAccum[i] > 0 && channelAccums[channel][i] / weightAccum[i] >= regionThreshold) {
+          binaryMask[i] = 1;
+        }
+      }
+
+      let outputLabels = binaryMask;
+      if (prePadDims[0] !== processingDims[0] || prePadDims[1] !== processingDims[1] || prePadDims[2] !== processingDims[2]) {
+        outputLabels = unpadVolume(outputLabels, processingDims, prePadDims, Uint8Array);
+      }
+      const preCleanupLabels = outputLabels;
+      if (regionMinComponentSize > 1) {
+        onLog(`Removing ${region.stage || region.name || `channel_${channel}`} components smaller than ${regionMinComponentSize} voxels...`);
+        outputLabels = removeSmallComponents(outputLabels, prePadDims, regionMinComponentSize);
+      }
+
+      let finalVoxels = 0;
+      for (let i = 0; i < outputLabels.length; i++) {
+        if (outputLabels[i] > 0) finalVoxels++;
+      }
+      onLog(`${region.stage || region.name || `channel_${channel}`} output: ${finalVoxels} foreground voxels`);
+
+      regions.push({
+        ...region,
+        channel,
+        labels: outputLabels,
+        preCleanupLabels,
+        dims: prePadDims,
+        probStats: channelProbStats[channel],
+        threshold: regionThreshold
+      });
+    }
+
+    return { regions, dims: prePadDims, probStats: channelProbStats };
+  }
+
   return {
     runInferencePipeline,
+    runRegionInferencePipeline,
     zScoreNormalize,
     zeroPadToPatchMultiple,
     unpadVolume,
@@ -450,8 +743,14 @@
     computePatchPositions3D,
     extractPatch3D,
     flipPatch3D,
+    flipChannelMajorPatch3D,
     accumulatePatch3D,
+    accumulateChannelMajorPatch3D,
     sigmoid,
+    sigmoidChannels,
+    softmaxChannels,
+    argmaxLabelsFromChannels,
+    splitLabelsByClassMap,
     connectedComponents3D,
     removeSmallComponents,
     TTA_AXES

@@ -208,11 +208,18 @@ function validateFixturePolicies(fixtureCases, steps, rootDir) {
 
   for (const fixtureCase of fixtureCases) {
     const step = stepsByLine.get(fixtureCase.batchStep?.sourceLine);
-    fixtureByLine.set(fixtureCase.batchStep?.sourceLine, fixtureCase);
+    if (fixtureCase.batchStep?.sourceLine != null) {
+      fixtureByLine.set(fixtureCase.batchStep.sourceLine, fixtureCase);
+    }
     const missing = [];
-    if (!step) missing.push('batchStep');
+    if (!step && !fixtureCase.externalReference) missing.push('batchStep');
     if (!fixtureCase.inputPath || !fs.existsSync(path.join(rootDir, fixtureCase.inputPath))) missing.push('inputPath');
-    if (!fixtureCase.expectedOutputPath || !fs.existsSync(path.join(rootDir, fixtureCase.expectedOutputPath))) missing.push('expectedOutputPath');
+    const expectedOutputPaths = fixtureCase.expectedOutputPaths
+      ? Object.values(fixtureCase.expectedOutputPaths)
+      : [fixtureCase.expectedOutputPath];
+    if (expectedOutputPaths.some(expectedOutputPath => !expectedOutputPath || !fs.existsSync(path.join(rootDir, expectedOutputPath)))) {
+      missing.push('expectedOutputPath');
+    }
     if (!fixtureCase.tolerancePolicy) missing.push('tolerancePolicy');
     if (!fixtureCase.producedOutputName) missing.push('producedOutputName');
     if (missing.length) {

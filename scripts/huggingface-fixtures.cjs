@@ -7,12 +7,21 @@ const fixtures = require('./batch-parity-fixtures.cjs');
 
 const DEFAULT_HF_DATASET_REPO = 'sbollmann/sct-webapp-data';
 const DEFAULT_HF_REVISION = 'main';
+const SCT_TESTING_DATA_RAW_BASE = 'https://raw.githubusercontent.com/spinalcordtoolbox/sct_testing_data/master';
+const SCT_TESTING_DATA_FIXTURE_MAP = Object.freeze({
+  'test_data/batch_t2_deepseg_lesion_sci_t2/input.nii.gz': 't2/t2_fake_lesion.nii.gz',
+  'test_data/batch_t2_deepseg_lesion_sci_t2/batch_output_sc.nii.gz': 't2/t2_fake_lesion_sc_seg.nii.gz',
+  'test_data/batch_t2_deepseg_lesion_sci_t2/batch_output_lesion.nii.gz': 't2/t2_fake_lesion_lesion_seg.nii.gz'
+});
 
 function requiredSctFixturePaths(rootDir) {
   const required = [path.join(rootDir, 'test_data/batch_processing.sh')];
   for (const fixture of fixtures.FIXTURE_CASES) {
     required.push(path.join(rootDir, fixture.inputPath));
-    required.push(path.join(rootDir, fixture.expectedOutputPath));
+    const expectedPaths = fixture.expectedOutputPaths
+      ? Object.values(fixture.expectedOutputPaths)
+      : [fixture.expectedOutputPath];
+    for (const expectedPath of expectedPaths) required.push(path.join(rootDir, expectedPath));
   }
   return required;
 }
@@ -35,7 +44,11 @@ async function ensureSctBatchFixtures(rootDir, options = {}) {
   const revision = options.revision || process.env.SCT_HF_REVISION || DEFAULT_HF_REVISION;
   for (const filePath of targets) {
     const relativePath = path.relative(rootDir, filePath).split(path.sep).join('/');
-    await downloadHfFile(repoId, revision, relativePath, filePath);
+    if (SCT_TESTING_DATA_FIXTURE_MAP[relativePath]) {
+      await downloadSctTestingDataFile(SCT_TESTING_DATA_FIXTURE_MAP[relativePath], filePath);
+    } else {
+      await downloadHfFile(repoId, revision, relativePath, filePath);
+    }
   }
 
   const missing = missingSctFixturePaths(rootDir);
@@ -47,6 +60,11 @@ async function ensureSctBatchFixtures(rootDir, options = {}) {
 
 function downloadHfFile(repoId, revision, relativePath, destination) {
   const url = `https://huggingface.co/datasets/${repoId}/resolve/${encodeURIComponent(revision)}/${relativePath}`;
+  return download(url, destination, 0);
+}
+
+function downloadSctTestingDataFile(relativePath, destination) {
+  const url = `${SCT_TESTING_DATA_RAW_BASE}/${relativePath}`;
   return download(url, destination, 0);
 }
 
@@ -95,6 +113,7 @@ function download(url, destination, redirectCount) {
 module.exports = {
   DEFAULT_HF_DATASET_REPO,
   DEFAULT_HF_REVISION,
+  SCT_TESTING_DATA_FIXTURE_MAP,
   ensureSctBatchFixtures,
   hasSctBatchFixtures,
   missingSctFixturePaths,

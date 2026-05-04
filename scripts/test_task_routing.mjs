@@ -37,6 +37,13 @@ assert.ok(vertebrae, 'vertebrae task is defined');
 assert.equal(vertebrae.processingOnly, true, 'vertebrae must be flagged processingOnly');
 assert.ok(!segmentationDropdownTasks.includes(vertebrae), 'vertebrae must be filtered out of the segmentation dropdown');
 
+const lesionSci = SCT_TASKS.find(task => task.id === 'lesion_sci_t2');
+assert.ok(lesionSci, 'lesion_sci_t2 task is defined');
+assert.equal(lesionSci.supportStatus, 'supported', 'lesion_sci_t2 must be runnable from SCT Segmentation');
+assert.ok(segmentationDropdownTasks.includes(lesionSci), 'lesion_sci_t2 must appear in the segmentation dropdown');
+assert.deepEqual(lesionSci.outputStages?.map(stage => stage.id), ['segmentation', 'lesion', 'lesion_metrics'], 'lesion_sci_t2 must declare spinal-cord, lesion, and metrics stages');
+assert.equal(getPrimaryModelAsset(lesionSci)?.output?.activation, 'sigmoid-regions', 'lesion_sci_t2 must use SCIsegV2 region-channel output metadata');
+
 const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
 const processingOptions = [...indexHtml.matchAll(/<select id="processingOperationSelect">([\s\S]*?)<\/select>/g)][0]?.[1] || '';
 assert.match(processingOptions, /value="vertebrae"/, 'processingOperationSelect must offer vertebrae');
@@ -61,10 +68,11 @@ assert.match(appJs, /processingOnly\s*\|\|\s*!selectedAsset/, 'runInference must
 // visible they render as overlays; when input is hidden, renderViewerVolumes()
 // promotes the first visible label mask to the NiiVue base volume because
 // volume 0 is not a reliable hide target.
-assert.match(appJs, /isOverlayStage\(stage\)\s*\{\s*return stage === 'segmentation' \|\| stage === 'vertebrae'/, 'isOverlayStage must include both segmentation and vertebrae');
+assert.match(appJs, /isOverlayStage\(stage\)\s*\{\s*return stage === 'segmentation' \|\| stage === 'lesion' \|\| stage === 'vertebrae'/, 'isOverlayStage must include segmentation, lesion, and vertebrae');
 assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-vertebrae'/, 'getOverlayColormapId must map vertebrae to sct-vertebrae');
-assert.match(appJs, /_stageVisibility\s*=\s*\{[\s\S]*?segmentation:\s*true[\s\S]*?vertebrae:\s*true/, 'result visibility must be tracked per stage');
-assert.match(appJs, /getVisibleOverlayStages\(\)[\s\S]*?\['segmentation', 'vertebrae'\][\s\S]*?isStageVisible\(stage\)[\s\S]*?hasResult\(stage\)/, 'visible overlay stages must be resolved from per-stage visibility and existing results');
+assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-lesion'/, 'getOverlayColormapId must map lesion to sct-lesion');
+assert.match(appJs, /_stageVisibility\s*=\s*\{[\s\S]*?segmentation:\s*true[\s\S]*?lesion:\s*true[\s\S]*?vertebrae:\s*true/, 'result visibility must be tracked per stage');
+assert.match(appJs, /getVisibleOverlayStages\(\)[\s\S]*?\['segmentation', 'lesion', 'vertebrae'\][\s\S]*?isStageVisible\(stage\)[\s\S]*?hasResult\(stage\)/, 'visible overlay stages must be resolved from per-stage visibility and existing results');
 assert.match(appJs, /stackEntries\s*=\s*\[\{[\s\S]*?stage:\s*baseOverlayStage[\s\S]*?labelMask:\s*true[\s\S]*?loadVolumeStack\(stackEntries\)/, 'hidden-input rendering must promote the first visible label mask to the base volume with stage tracking');
 assert.match(appJs, /for \(const overlayStage of visibleOverlayStages\)[\s\S]*?stackEntries\.push\(\{[\s\S]*?stage:\s*overlayStage[\s\S]*?labelMask:\s*true[\s\S]*?loadVolumeStack\(stackEntries\)/, 'visible label masks must be loaded as one independently tracked volume stack');
 assert.match(appJs, /_renderViewerPromise\s*=\s*Promise\.resolve\(\)/, 'viewer renders must be serialized to prevent late base loads from wiping overlays');
@@ -75,7 +83,7 @@ assert.match(appJs, /renderViewerVolumes\(\)\s*\{[\s\S]*?_renderViewerPromise\s*
 // render the wrong label mask.
 assert.doesNotMatch(
   appJs,
-  /getVisibleOverlayStages\(\)\s*\{[\s\S]*?return\s+\['segmentation', 'vertebrae'\]\.filter\(stage => \(\s*this\.isStageVisible\(stage\)\s*\)\)/,
+  /getVisibleOverlayStages\(\)\s*\{[\s\S]*?return\s+\['segmentation', 'lesion', 'vertebrae'\]\.filter\(stage => \(\s*this\.isStageVisible\(stage\)\s*\)\)/,
   'getVisibleOverlayStages must also require an existing result for each visible stage'
 );
 
@@ -87,12 +95,12 @@ assert.match(appJs, /clearResults\(\);[\s\S]*?disableAllResultTabs\(\);[\s\S]*?r
 // its own visibility, and missing results are excluded even when their default
 // visibility flag is on.
 function getVisibleOverlayStages(visibility, available) {
-  return ['segmentation', 'vertebrae'].filter(stage => visibility[stage] && available.has(stage));
+  return ['segmentation', 'lesion', 'vertebrae'].filter(stage => visibility[stage] && available.has(stage));
 }
-assert.deepEqual(getVisibleOverlayStages({ segmentation: true, vertebrae: true }, new Set(['segmentation', 'vertebrae'])), ['segmentation', 'vertebrae']);
-assert.deepEqual(getVisibleOverlayStages({ segmentation: true, vertebrae: false }, new Set(['segmentation', 'vertebrae'])), ['segmentation']);
-assert.deepEqual(getVisibleOverlayStages({ segmentation: false, vertebrae: true }, new Set(['segmentation', 'vertebrae'])), ['vertebrae']);
-assert.deepEqual(getVisibleOverlayStages({ segmentation: true, vertebrae: true }, new Set(['segmentation'])), ['segmentation'], 'must not render a missing vertebrae result');
-assert.deepEqual(getVisibleOverlayStages({ segmentation: false, vertebrae: false }, new Set(['segmentation', 'vertebrae'])), []);
+assert.deepEqual(getVisibleOverlayStages({ segmentation: true, lesion: true, vertebrae: true }, new Set(['segmentation', 'lesion', 'vertebrae'])), ['segmentation', 'lesion', 'vertebrae']);
+assert.deepEqual(getVisibleOverlayStages({ segmentation: true, lesion: false, vertebrae: true }, new Set(['segmentation', 'lesion', 'vertebrae'])), ['segmentation', 'vertebrae']);
+assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: true, vertebrae: true }, new Set(['segmentation', 'lesion', 'vertebrae'])), ['lesion', 'vertebrae']);
+assert.deepEqual(getVisibleOverlayStages({ segmentation: true, lesion: true, vertebrae: true }, new Set(['segmentation'])), ['segmentation'], 'must not render missing sibling results');
+assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: false, vertebrae: false }, new Set(['segmentation', 'lesion', 'vertebrae'])), []);
 
 console.log(`Task routing OK: ${segmentationDropdownTasks.length} segmentation task(s) all have model assets; vertebrae is processing-only.`);

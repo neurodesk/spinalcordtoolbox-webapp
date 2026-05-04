@@ -45,7 +45,121 @@ function readNiftiRaw(filePath) {
     else if (datatype === 64) data[i] = bytes.readDoubleLE(voxOffset + i * 8) * slope + inter;
     else throw new Error(`Unsupported datatype ${datatype}: ${filePath}`);
   }
-  return { header: bytes.subarray(0, voxOffset), dims, data };
+  const header = bytes.subarray(0, voxOffset);
+  return { header, dims, data, affine: extractAffine(header) };
+}
+
+function extractAffine(header) {
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  const sformCode = view.getInt16(254, true);
+  const qformCode = view.getInt16(252, true);
+  if (sformCode > 0) {
+    const affine = [new Float64Array(4), new Float64Array(4), new Float64Array(4), new Float64Array([0, 0, 0, 1])];
+    for (let i = 0; i < 4; i++) {
+      affine[0][i] = view.getFloat32(280 + i * 4, true);
+      affine[1][i] = view.getFloat32(296 + i * 4, true);
+      affine[2][i] = view.getFloat32(312 + i * 4, true);
+    }
+    return affine;
+  }
+  if (qformCode > 0) {
+    const pixDims = [];
+    for (let i = 0; i < 4; i++) pixDims.push(view.getFloat32(76 + i * 4, true));
+    const qb = view.getFloat32(256, true);
+    const qc = view.getFloat32(260, true);
+    const qd = view.getFloat32(264, true);
+    const qx = view.getFloat32(268, true);
+    const qy = view.getFloat32(272, true);
+    const qz = view.getFloat32(276, true);
+    const sqr = qb * qb + qc * qc + qd * qd;
+    const qa = sqr > 1.0 ? 0.0 : Math.sqrt(1.0 - sqr);
+    const R = [
+      [qa*qa+qb*qb-qc*qc-qd*qd, 2*(qb*qc-qa*qd), 2*(qb*qd+qa*qc)],
+      [2*(qb*qc+qa*qd), qa*qa+qc*qc-qb*qb-qd*qd, 2*(qc*qd-qa*qb)],
+      [2*(qb*qd-qa*qc), 2*(qc*qd+qa*qb), qa*qa+qd*qd-qb*qb-qc*qc]
+    ];
+    const qfac = pixDims[0] < 0 ? -1 : 1;
+    return [
+      new Float64Array([R[0][0]*pixDims[1], R[0][1]*pixDims[2], R[0][2]*pixDims[3]*qfac, qx]),
+      new Float64Array([R[1][0]*pixDims[1], R[1][1]*pixDims[2], R[1][2]*pixDims[3]*qfac, qy]),
+      new Float64Array([R[2][0]*pixDims[1], R[2][1]*pixDims[2], R[2][2]*pixDims[3]*qfac, qz]),
+      new Float64Array([0, 0, 0, 1])
+    ];
+  }
+  const pixDims = [];
+  for (let i = 0; i < 4; i++) pixDims.push(view.getFloat32(76 + i * 4, true));
+  return [
+    new Float64Array([pixDims[1] || 1, 0, 0, 0]),
+    new Float64Array([0, pixDims[2] || 1, 0, 0]),
+    new Float64Array([0, 0, pixDims[3] || 1, 0]),
+    new Float64Array([0, 0, 0, 1])
+  ];
+}
+
+function getOrientationTransform(affine) {
+  const mat = [
+    [affine[0][0], affine[0][1], affine[0][2]],
+    [affine[1][0], affine[1][1], affine[1][2]],
+    [affine[2][0], affine[2][1], affine[2][2]]
+  ];
+  const perm = [0, 0, 0];
+  const flip = [false, false, false];
+  const used = [false, false, false];
+  for (let outAxis = 0; outAxis < 3; outAxis++) {
+    let bestAxis = -1;
+    let bestVal = -1;
+    for (let inAxis = 0; inAxis < 3; inAxis++) {
+      if (used[inAxis]) continue;
+      const val = Math.abs(mat[outAxis][inAxis]);
+      if (val > bestVal) {
+        bestVal = val;
+        bestAxis = inAxis;
+      }
+    }
+    perm[outAxis] = bestAxis;
+    flip[outAxis] = mat[outAxis][bestAxis] < 0;
+    used[bestAxis] = true;
+  }
+  return { perm, flip };
+}
+
+function orientToRAS(data, dims, perm, flip) {
+  const srcDims = dims;
+  const dstDims = [srcDims[perm[0]], srcDims[perm[1]], srcDims[perm[2]]];
+  const [dx, dy, dz] = dstDims;
+  const result = new Float32Array(dx * dy * dz);
+  for (let oz = 0; oz < dz; oz++) {
+    for (let oy = 0; oy < dy; oy++) {
+      for (let ox = 0; ox < dx; ox++) {
+        const coords = [ox, oy, oz];
+        const src = [0, 0, 0];
+        for (let i = 0; i < 3; i++) {
+          src[perm[i]] = flip[i] ? (dstDims[i] - 1 - coords[i]) : coords[i];
+        }
+        result[ox + oy*dx + oz*dx*dy] = data[src[0] + src[1]*dims[0] + src[2]*dims[0]*dims[1]];
+      }
+    }
+  }
+  return { data: result, dims: dstDims };
+}
+
+function inverseOrient(data, dims, perm, flip, origDims) {
+  const [dx, dy, dz] = dims;
+  const [nx, ny, nz] = origDims;
+  const result = new Uint8Array(nx * ny * nz);
+  for (let oz = 0; oz < dz; oz++) {
+    for (let oy = 0; oy < dy; oy++) {
+      for (let ox = 0; ox < dx; ox++) {
+        const coords = [ox, oy, oz];
+        const src = [0, 0, 0];
+        for (let i = 0; i < 3; i++) {
+          src[perm[i]] = flip[i] ? (dims[i] - 1 - coords[i]) : coords[i];
+        }
+        result[src[0] + src[1]*nx + src[2]*nx*ny] = data[ox + oy*dx + oz*dx*dy];
+      }
+    }
+  }
+  return result;
 }
 
 function writeUint8NiftiGz(outPath, header, dims, labels) {
@@ -71,12 +185,28 @@ function writeUint8NiftiGz(outPath, header, dims, labels) {
  * Mirrors the manifest the browser worker reads.
  */
 function resolveTaskAsset(fixtureId) {
-  const taskId = fixtureId.includes('graymatter') ? 'graymatter' : 'spinalcord';
+  const taskId = fixtureId.includes('lesion_sci_t2')
+    ? 'lesion_sci_t2'
+    : (fixtureId.includes('graymatter') ? 'graymatter' : 'spinalcord');
   const task = MANIFEST.tasks.find(t => t.id === taskId);
   if (!task) throw new Error(`No task in manifest matching fixture id ${fixtureId}`);
   const asset = task.modelAssets[0];
   if (!asset) throw new Error(`No model asset for task ${taskId}`);
   return { taskId, asset };
+}
+
+function browserOutputPathForFixture(fixture, stage = null) {
+  if (stage && fixture.browserOutputPaths?.[stage]) {
+    return path.join(ROOT, fixture.browserOutputPaths[stage]);
+  }
+  return path.join(path.dirname(path.join(ROOT, fixture.inputPath)), 'browser_output.nii.gz');
+}
+
+function expectedOutputPathForFixture(fixture, stage = null) {
+  if (stage && fixture.expectedOutputPaths?.[stage]) {
+    return path.join(ROOT, fixture.expectedOutputPaths[stage]);
+  }
+  return path.join(ROOT, fixture.expectedOutputPath);
 }
 
 function shouldUseZYXModelAxisOrder(preprocessing, dims, patchSize) {
@@ -208,15 +338,42 @@ function transposeZYXToXYZ(data, dims, OutputCtor) {
   return { data: result, dims: [nx, ny, nz] };
 }
 
+function flipVolumeAxes(data, dims, axes, OutputCtor) {
+  const [nx, ny, nz] = dims;
+  const result = new (OutputCtor || data.constructor || Uint8Array)(data.length);
+  const flipX = axes.includes(0);
+  const flipY = axes.includes(1);
+  const flipZ = axes.includes(2);
+  for (let z = 0; z < nz; z++) {
+    const sz = flipZ ? nz - 1 - z : z;
+    for (let y = 0; y < ny; y++) {
+      const sy = flipY ? ny - 1 - y : y;
+      for (let x = 0; x < nx; x++) {
+        const sx = flipX ? nx - 1 - x : x;
+        result[x + y*nx + z*nx*ny] = data[sx + sy*nx + sz*nx*ny];
+      }
+    }
+  }
+  return { data: result, dims: [...dims] };
+}
+
+function orientationFlipAxesFromRAS(modelOrientation) {
+  if (!modelOrientation || modelOrientation === 'RAS') return [];
+  if (modelOrientation === 'RPI') return [1, 2];
+  throw new Error(`Unsupported modelOrientation "${modelOrientation}"`);
+}
+
 async function runCase(fixture) {
   const inputPath = path.join(ROOT, fixture.inputPath);
-  const outPath = path.join(path.dirname(inputPath), 'browser_output.nii.gz');
   const { taskId, asset } = resolveTaskAsset(fixture.id);
   const modelPath = path.join(ROOT, 'web/models', asset.filename);
 
-  const { header, dims, data } = readNiftiRaw(inputPath);
+  const { header, dims, data, affine } = readNiftiRaw(inputPath);
   const headerView = new DataView(header.buffer, header.byteOffset, header.byteLength);
-  const spacing = [headerView.getFloat32(80, true), headerView.getFloat32(84, true), headerView.getFloat32(88, true)].map(v => Math.abs(v) || 1);
+  const nativeSpacing = [headerView.getFloat32(80, true), headerView.getFloat32(84, true), headerView.getFloat32(88, true)].map(v => Math.abs(v) || 1);
+  const { perm, flip } = getOrientationTransform(affine);
+  const isIdentityOrientation = perm[0] === 0 && perm[1] === 1 && perm[2] === 2 && !flip[0] && !flip[1] && !flip[2];
+  const rasSpacing = [nativeSpacing[perm[0]], nativeSpacing[perm[1]], nativeSpacing[perm[2]]];
   const session = await ort.InferenceSession.create(modelPath, { executionProviders: ['cpu'] });
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
@@ -235,15 +392,32 @@ async function runCase(fixture) {
   let modelInputData = data;
   let modelInputDims = dims;
   let modelOutputToInput = (labels, labelDims) => ({ labels, dims: labelDims });
+  if (!isIdentityOrientation) {
+    const oriented = orientToRAS(data, dims, perm, flip);
+    modelInputData = oriented.data;
+    modelInputDims = oriented.dims;
+  }
   if (Array.isArray(asset.preprocessing?.targetSpacing)) {
-    const targetSpacing = asset.preprocessing.targetSpacing.map((value, index) => value == null ? spacing[index] : Number(value));
-    const resampled = resampleVolume(modelInputData, modelInputDims, spacing, targetSpacing);
+    const targetSpacing = asset.preprocessing.targetSpacing.map((value, index) => value == null ? rasSpacing[index] : Number(value));
+    const resampleSourceDims = [...modelInputDims];
+    const resampled = resampleVolume(modelInputData, modelInputDims, rasSpacing, targetSpacing);
     modelInputData = resampled.data;
     modelInputDims = resampled.dims;
     const previous = modelOutputToInput;
     modelOutputToInput = (labels, labelDims) => {
       const restored = previous(labels, labelDims);
-      return { labels: resampleLabelsNearest(restored.labels, restored.dims, dims), dims };
+      return { labels: resampleLabelsNearest(restored.labels, restored.dims, resampleSourceDims), dims: resampleSourceDims };
+    };
+  }
+  const modelOrientationFlipAxes = orientationFlipAxesFromRAS(asset.preprocessing?.modelOrientation);
+  if (modelOrientationFlipAxes.length > 0) {
+    const oriented = flipVolumeAxes(modelInputData, modelInputDims, modelOrientationFlipAxes, Float32Array);
+    modelInputData = oriented.data;
+    modelInputDims = oriented.dims;
+    const previous = modelOutputToInput;
+    modelOutputToInput = (labels, labelDims) => {
+      const restoredOrientation = flipVolumeAxes(labels, labelDims, modelOrientationFlipAxes, Uint8Array);
+      return previous(restoredOrientation.data, restoredOrientation.dims);
     };
   }
   if (shouldUseZYXModelAxisOrder(asset.preprocessing, modelInputDims, patchSize)) {
@@ -255,6 +429,49 @@ async function runCase(fixture) {
       const restoredAxes = transposeZYXToXYZ(labels, labelDims, Uint8Array);
       return previous(restoredAxes.data, restoredAxes.dims);
     };
+  }
+  if (!isIdentityOrientation) {
+    const previous = modelOutputToInput;
+    modelOutputToInput = (labels, labelDims) => {
+      const restored = previous(labels, labelDims);
+      return { labels: inverseOrient(restored.labels, restored.dims, perm, flip, dims), dims };
+    };
+  }
+
+  if (asset.output?.activation === 'sigmoid-regions') {
+    const result = await pipeline.runRegionInferencePipeline(
+      { data: modelInputData, dims: modelInputDims, patchSize },
+      runPatch,
+      {
+        threshold,
+        minComponentSize,
+        testTimeAugmentation: !!asset.inferenceDefaults?.testTimeAugmentation,
+        channelCount: asset.output.channelCount || asset.output.channelOrder?.length || asset.output.regions?.length || 1,
+        regions: asset.output.regions || [],
+        onLog: () => {},
+        onProgress: (stepsDone, totalSteps) => {
+          if (totalSteps && stepsDone % 5 === 0) process.stderr.write(`${fixture.id}: ${stepsDone}/${totalSteps}\n`);
+        },
+        onPatchStats: () => {}
+      }
+    );
+    await session.release();
+
+    const outputs = [];
+    for (const region of result.regions) {
+      const stage = region.stage || region.name;
+      if (!fixture.browserOutputPaths?.[stage]) continue;
+      const outPath = browserOutputPathForFixture(fixture, stage);
+      const restored = modelOutputToInput(region.labels, region.dims);
+      writeUint8NiftiGz(outPath, header, dims, restored.labels);
+
+      const expected = loadNifti(expectedOutputPathForFixture(fixture, stage));
+      const produced = loadNifti(outPath);
+      const mismatches = compareNiftiOutputs(expected, produced, fixture.tolerancePolicy, path.basename(outPath), path.basename(outPath));
+      const { expectedNz, producedNz, dice } = diceVsExpected(produced.data, expected.data);
+      outputs.push({ id: fixture.id, stage, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, multilabelDice: null, threshold, taskId });
+    }
+    return outputs;
   }
 
   const result = await pipeline.runInferencePipeline(
@@ -288,16 +505,17 @@ async function runCase(fixture) {
     process.stderr.write(`${fixture.id}: C2-C3 z=${labeled.detected.z} score=${labeled.detected.score.toFixed(4)} fallback=${!!labeled.detected.fallback}\n`);
     outputLabels = labeled.labels;
   }
+  const outPath = browserOutputPathForFixture(fixture);
   writeUint8NiftiGz(outPath, header, dims, outputLabels);
 
-  const expected = loadNifti(path.join(ROOT, fixture.expectedOutputPath));
+  const expected = loadNifti(expectedOutputPathForFixture(fixture));
   const produced = loadNifti(outPath);
   const mismatches = compareNiftiOutputs(expected, produced, fixture.tolerancePolicy, 'browser_output.nii.gz', 'browser_output.nii.gz');
   const { expectedNz, producedNz, dice } = diceVsExpected(produced.data, expected.data);
   const multilabelDice = fixture.id === 'batch_t2_label_vertebrae'
     ? multilabelDiceVsExpected(produced.data, expected.data)
     : null;
-  return { id: fixture.id, outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, multilabelDice, threshold, taskId };
+  return [{ id: fixture.id, stage: 'segmentation', outPath: path.relative(ROOT, outPath), mismatches, expectedNz, producedNz, dice, multilabelDice, threshold, taskId }];
 }
 
 (async () => {
@@ -305,11 +523,12 @@ async function runCase(fixture) {
   const filter = process.env.BROWSER_FIXTURE_FILTER || '';
   const selectedFixtures = fixtures.FIXTURE_CASES.filter(fixture => !filter || fixture.id.includes(filter));
   for (const fixture of selectedFixtures) {
-    results.push(await runCase(fixture));
+    results.push(...await runCase(fixture));
   }
   for (const result of results) {
     console.log(JSON.stringify({
       id: result.id,
+      stage: result.stage,
       outPath: result.outPath,
       mismatchCount: result.mismatches.length,
       firstMismatch: result.mismatches[0] || null,

@@ -19,6 +19,7 @@ const controllerSources = [
 ].map(file => fs.readFileSync(path.join(ROOT, file), 'utf8')).join('\n');
 const viewerTest = fs.readFileSync(path.join(ROOT, 'scripts/test_viewer_controller.mjs'), 'utf8');
 const processingTest = fs.readFileSync(path.join(ROOT, 'scripts/test_sct_processing.cjs'), 'utf8');
+const lesionAnalysisTest = fs.readFileSync(path.join(ROOT, 'scripts/test_lesion_analysis.cjs'), 'utf8');
 const batchTest = fs.readFileSync(path.join(ROOT, 'scripts/test_batch_processing_cases.cjs'), 'utf8');
 const workerTest = fs.readFileSync(path.join(ROOT, 'scripts/test_inference_worker_e2e.cjs'), 'utf8');
 
@@ -42,6 +43,7 @@ const UI_COVERAGE = Object.freeze([
   { id: 'runProcessingBtn', behavior: 'runs selected browser processing operation', coveredBy: ['processing', 'batch', 'static-dom'] },
   { id: 'processingOutput', behavior: 'displays processing output text', coveredBy: ['processing', 'batch', 'static-dom'] },
   { id: 'stageButtons', behavior: 'renders result view/download controls', coveredBy: ['batch', 'static-dom'] },
+  { id: 'metricsResults', behavior: 'renders tabular metrics result stages', coveredBy: ['lesion-analysis', 'static-dom'] },
   { id: 'resultsSection', behavior: 'shows available result stages', coveredBy: ['batch', 'static-dom'] },
   { id: 'downloadCurrentVolume', behavior: 'downloads selected result/input volume', coveredBy: ['batch', 'static-dom'] },
   { id: 'screenshotViewer', behavior: 'exports viewer screenshot', coveredBy: ['batch', 'static-dom'] },
@@ -70,6 +72,7 @@ const UI_COVERAGE = Object.freeze([
 const TEST_SOURCES = {
   batch: batchTest,
   processing: processingTest,
+  'lesion-analysis': lesionAnalysisTest,
   viewer: viewerTest,
   worker: workerTest,
   'static-dom': domSource

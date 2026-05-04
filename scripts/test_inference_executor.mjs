@@ -149,6 +149,32 @@ function attachFakeWorker(exec) {
   assert.equal(stages[0], 'inference');
 }
 
+// Test 4b: metrics stageData is stored as CSV/table data, not as a NIfTI
+{
+  const { exec, stages } = makeExecutor();
+  attachFakeWorker(exec);
+  exec.currentTaskId = 'lesion_sci_t2';
+  exec.worker.onmessage({
+    data: {
+      type: 'stageData',
+      kind: 'metrics',
+      stage: 'lesion_metrics',
+      taskId: 'lesion_sci_t2',
+      description: 'metrics',
+      rows: [{ lesion_id: 1, volume_mm3: 12 }],
+      summary: { lesion_count: 1 },
+      csv: 'row_type,lesion_id\nlesion,1\n',
+      filename: 'lesion_sci_t2_lesion_metrics.csv'
+    }
+  });
+  assert.deepEqual(exec.getStageOrder(), ['lesion_metrics']);
+  assert.equal(exec.hasResult('lesion_metrics'), true);
+  assert.equal(exec.getResult('lesion_metrics').kind, 'metrics');
+  assert.equal(exec.getResult('lesion_metrics').file.name, 'lesion_sci_t2_lesion_metrics.csv');
+  assert.equal(exec.getResult('lesion_metrics').rows[0].volume_mm3, 12);
+  assert.equal(stages[0], 'lesion_metrics');
+}
+
 // Test 5: error message sets progress to 0 and fires onError
 {
   const { exec, errors, progress } = makeExecutor();

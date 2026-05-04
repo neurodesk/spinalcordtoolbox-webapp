@@ -7,12 +7,13 @@
  *   2. Inference (resample → normalize → crop → sliding window → threshold → CC → inverse)
  */
 
-/* global importScripts, ort, localforage, nifti, SCTInferencePipeline */
+/* global importScripts, ort, localforage, nifti, SCTInferencePipeline, SCTLesionAnalysis */
 
 importScripts('../wasm/ort.webgpu.min.js');
 importScripts('https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js');
 importScripts('../nifti-js/index.js');
 importScripts('./inference-pipeline.js');
+importScripts('./modules/lesion-analysis.js');
 importScripts('./modules/vertebrae.js');
 
 const FIXED_TARGET_SPACING = [0.3, 0.3, 0.3];
@@ -33,6 +34,7 @@ let workerState = {
   rasSpacing: null,
   // Unmasked segmentation labels in RAS space (before brain mask / CC cleanup)
   segLabelsRAS: null,
+  lesionLabelsRAS: null,
   segMinComponentSize: 10,
 };
 
@@ -49,6 +51,7 @@ function resetState() {
     rasDims: null,
     rasSpacing: null,
     segLabelsRAS: null,
+    lesionLabelsRAS: null,
     segMinComponentSize: 10,
   };
 }
@@ -73,9 +76,23 @@ function postComplete() {
 
 function postStageData(stage, niftiData, description) {
   self.postMessage(
-    { type: 'stageData', stage, niftiData, description, taskId: self._currentTaskId || 'spinalcord' },
+    { type: 'stageData', kind: 'nifti', stage, niftiData, description, taskId: self._currentTaskId || 'spinalcord' },
     [niftiData]
   );
+}
+
+function postMetricsData(stage, metrics, description) {
+  self.postMessage({
+    type: 'stageData',
+    kind: 'metrics',
+    stage,
+    rows: metrics.rows || [],
+    summary: metrics.summary || null,
+    csv: metrics.csv || '',
+    filename: metrics.filename,
+    description,
+    taskId: self._currentTaskId || 'spinalcord'
+  });
 }
 
 function postStepComplete(step) {
@@ -744,6 +761,31 @@ function transposeZYXToXYZ(data, dims, OutputCtor) {
   return { data: result, dims: [nx, ny, nz] };
 }
 
+function flipVolumeAxes(data, dims, axes, OutputCtor) {
+  const [nx, ny, nz] = dims;
+  const result = new (OutputCtor || data.constructor || Uint8Array)(data.length);
+  const flipX = axes.includes(0);
+  const flipY = axes.includes(1);
+  const flipZ = axes.includes(2);
+  for (let z = 0; z < nz; z++) {
+    const sz = flipZ ? nz - 1 - z : z;
+    for (let y = 0; y < ny; y++) {
+      const sy = flipY ? ny - 1 - y : y;
+      for (let x = 0; x < nx; x++) {
+        const sx = flipX ? nx - 1 - x : x;
+        result[x + y*nx + z*nx*ny] = data[sx + sy*nx + sz*nx*ny];
+      }
+    }
+  }
+  return { data: result, dims: [...dims] };
+}
+
+function orientationFlipAxesFromRAS(modelOrientation) {
+  if (!modelOrientation || modelOrientation === 'RAS') return [];
+  if (modelOrientation === 'RPI') return [1, 2];
+  throw new Error(`Unsupported modelOrientation "${modelOrientation}"`);
+}
+
 function inverseOrient(data, dims, perm, flip, origDims) {
   const [dx, dy, dz] = dims;
   const [nx, ny, nz] = origDims;
@@ -949,6 +991,7 @@ function loadStateFromInput(inputData, { emitUpdates = false } = {}) {
 
   // Clear downstream state
   workerState.segLabelsRAS = null;
+  workerState.lesionLabelsRAS = null;
   workerState.segMinComponentSize = 10;
 
   // Post volume info for UI
@@ -998,7 +1041,8 @@ async function stepInference(params) {
     testTimeAugmentation = false,
     cacheKey,
     provenance = {},
-    preprocessing = {}
+    preprocessing = {},
+    output = {}
   } = params;
 
   if (supportStatus !== 'supported') {
@@ -1047,6 +1091,19 @@ async function stepInference(params) {
     };
   }
 
+  const modelOrientationFlipAxes = orientationFlipAxesFromRAS(preprocessing.modelOrientation);
+  if (modelOrientationFlipAxes.length > 0) {
+    const oriented = flipVolumeAxes(modelInputData, modelInputDims, modelOrientationFlipAxes, Float32Array);
+    postLog(`Reoriented for ${taskId}: RAS -> ${preprocessing.modelOrientation}`);
+    modelInputData = oriented.data;
+    modelInputDims = oriented.dims;
+    const previousOutputToRas = modelOutputToRas;
+    modelOutputToRas = (labels, dims, OutputCtor) => {
+      const restored = flipVolumeAxes(labels, dims, modelOrientationFlipAxes, OutputCtor || Uint8Array);
+      return previousOutputToRas(restored.data, restored.dims, OutputCtor || Uint8Array);
+    };
+  }
+
   if (shouldUseZYXModelAxisOrder(preprocessing, modelInputDims, patchSize)) {
     const transposed = transposeXYZToZYX(modelInputData, modelInputDims, Float32Array);
     postLog(`Reordered for ${taskId}: ${modelInputDims.join('x')} xyz -> ${transposed.dims.join('x')} zyx`);
@@ -1059,64 +1116,150 @@ async function stepInference(params) {
     };
   }
 
-  // Delegate the per-patch inference + sliding-window orchestration to the
-  // shared pipeline module, injecting an ORT-backed runPatch callback.
-  const result = await SCTInferencePipeline.runInferencePipeline(
-    {
-      data: modelInputData,
-      dims: modelInputDims,
-      patchSize
-    },
-    async (patch, patchDims) => {
-      const [p0, p1, p2] = patchDims;
-      const inputTensor = new ort.Tensor('float32', patch, [1, 1, p0, p1, p2]);
-      const out = await session.run({ [inputName]: inputTensor });
-      const logits = out[outputName].data;
-      inputTensor.dispose();
-      return logits;
-    },
-    {
-      overlap, threshold, minComponentSize, testTimeAugmentation,
-      onLog: (msg) => postLog(msg),
-      onProgress: (stepsDone, totalSteps, label) => {
-        const elapsed = (performance.now() - inferenceStartTime) / 1000;
-        const eta = stepsDone > 0 ? (elapsed / stepsDone) * (totalSteps - stepsDone) : 0;
-        const frac = totalSteps > 0 ? stepsDone / totalSteps : 0;
-        postProgress(0.25 + 0.55 * frac, `${label} (ETA: ${eta.toFixed(0)}s)`);
+  const runPatch = async (patch, patchDims) => {
+    const [p0, p1, p2] = patchDims;
+    const inputTensor = new ort.Tensor('float32', patch, [1, 1, p0, p1, p2]);
+    const out = await session.run({ [inputName]: inputTensor });
+    const logits = out[outputName].data;
+    inputTensor.dispose();
+    return logits;
+  };
+
+  const progressHandler = (stepsDone, totalSteps, label) => {
+    const elapsed = (performance.now() - inferenceStartTime) / 1000;
+    const eta = stepsDone > 0 ? (elapsed / stepsDone) * (totalSteps - stepsDone) : 0;
+    const frac = totalSteps > 0 ? stepsDone / totalSteps : 0;
+    postProgress(0.25 + 0.55 * frac, `${label} (ETA: ${eta.toFixed(0)}s)`);
+  };
+
+  if (output.activation === 'sigmoid-regions') {
+    const regions = Array.isArray(output.regions) ? output.regions : [];
+    const channelCount = output.channelCount || output.channelOrder?.length || regions.length || 1;
+    const result = await SCTInferencePipeline.runRegionInferencePipeline(
+      {
+        data: modelInputData,
+        dims: modelInputDims,
+        patchSize
       },
-      onPatchStats: (pi, s) => {
-        postLog(`Patch ${pi} pos=[${s.pos}]: in=[${s.inMin.toFixed(3)},${s.inMax.toFixed(3)}] mean=${s.inMean.toFixed(3)}, logit=[${s.oMin.toFixed(3)},${s.oMax.toFixed(3)}], prob=[${s.pMin.toFixed(4)},${s.pMax.toFixed(4)}] mean=${s.pMean.toFixed(4)}, n>thr=${s.pAbove}`);
+      runPatch,
+      {
+        overlap,
+        threshold,
+        minComponentSize,
+        testTimeAugmentation,
+        channelCount,
+        regions,
+        onLog: (msg) => postLog(msg),
+        onProgress: progressHandler,
+        onPatchStats: (pi, s) => {
+          const channelText = s.channels.map(channel => (
+            `c${channel.channel}: logit=[${channel.oMin.toFixed(3)},${channel.oMax.toFixed(3)}], prob=[${channel.pMin.toFixed(4)},${channel.pMax.toFixed(4)}] mean=${channel.pMean.toFixed(4)}, n>thr=${channel.pAbove}`
+          )).join('; ');
+          postLog(`Patch ${pi} pos=[${s.pos}]: in=[${s.inMin.toFixed(3)},${s.inMax.toFixed(3)}] mean=${s.inMean.toFixed(3)}; ${channelText}`);
+        }
+      }
+    );
+    await session.release();
+    postLog(`Inference complete in ${((performance.now() - inferenceStartTime) / 1000).toFixed(1)}s`);
+
+    postProgress(0.86, 'Inverse transform...');
+    let spinalCordRAS = null;
+    let lesionRAS = null;
+    for (const region of result.regions) {
+      const stage = region.stage || region.name || `channel_${region.channel}`;
+      const description = region.description || (stage === 'lesion' ? 'SCI lesion segmentation' : 'SCT segmentation');
+      const preCleanupRAS = modelOutputToRas(region.preCleanupLabels, region.dims, Uint8Array);
+      const outputRAS = modelOutputToRas(region.labels, region.dims, Uint8Array);
+      if (stage === 'segmentation') {
+        workerState.segLabelsRAS = new Uint8Array(preCleanupRAS.data);
+        workerState.segMinComponentSize = minComponentSize;
+        spinalCordRAS = new Uint8Array(outputRAS.data);
+      }
+      if (stage === 'lesion') {
+        workerState.lesionLabelsRAS = new Uint8Array(outputRAS.data);
+        lesionRAS = new Uint8Array(outputRAS.data);
+      }
+
+      let outputLabels = new Uint8Array(outputRAS.data);
+      if (!workerState.isIdentity) {
+        outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+      }
+      const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+      postStageData(stage, outputNifti, description);
+
+      let finalVoxels = 0;
+      for (let i = 0; i < outputLabels.length; i++) {
+        if (outputLabels[i] > 0) finalVoxels++;
+      }
+      postLog(`${stage}: ${finalVoxels} foreground voxels`);
+      if (finalVoxels === 0) {
+        const stats = region.probStats;
+        postLog(`WARNING: ${stage} mask is empty. Probability map max=${stats?.max?.toFixed?.(4) || 'n/a'} (threshold=${region.threshold}).`);
       }
     }
-  );
-  await session.release();
-  postLog(`Inference complete in ${((performance.now() - inferenceStartTime) / 1000).toFixed(1)}s`);
 
-  // Stash the unmasked (pre-CC) labels for downstream browser processing.
-  postProgress(0.86, 'Inverse transform...');
-  const preCleanupRAS = modelOutputToRas(result.preCleanupLabels, result.dims, Uint8Array);
-  workerState.segLabelsRAS = new Uint8Array(preCleanupRAS.data);
-  workerState.segMinComponentSize = minComponentSize;
-  emitSegmentationStateArtifact();
+    if (workerState.segLabelsRAS) emitSegmentationStateArtifact();
 
-  let outputLabels = modelOutputToRas(result.labels, result.dims, Uint8Array).data;
+    if (spinalCordRAS && lesionRAS && self.SCTLesionAnalysis) {
+      postProgress(0.94, 'Computing lesion metrics...');
+      const metrics = self.SCTLesionAnalysis.analyzeLesions({
+        lesion: lesionRAS,
+        spinalCord: spinalCordRAS,
+        dims: workerState.rasDims,
+        spacing: workerState.rasSpacing
+      });
+      metrics.filename = `${taskId}_lesion_metrics.csv`;
+      postMetricsData('lesion_metrics', metrics, 'SCI lesion metrics');
+      postLog(`Lesion metrics: ${metrics.summary.lesion_count} lesion(s), total volume=${metrics.summary.total_volume_mm3} mm^3`);
+    }
+  } else {
+    // Delegate the per-patch inference + sliding-window orchestration to the
+    // shared pipeline module, injecting an ORT-backed runPatch callback.
+    const result = await SCTInferencePipeline.runInferencePipeline(
+      {
+        data: modelInputData,
+        dims: modelInputDims,
+        patchSize
+      },
+      runPatch,
+      {
+        overlap, threshold, minComponentSize, testTimeAugmentation,
+        onLog: (msg) => postLog(msg),
+        onProgress: progressHandler,
+        onPatchStats: (pi, s) => {
+          postLog(`Patch ${pi} pos=[${s.pos}]: in=[${s.inMin.toFixed(3)},${s.inMax.toFixed(3)}] mean=${s.inMean.toFixed(3)}, logit=[${s.oMin.toFixed(3)},${s.oMax.toFixed(3)}], prob=[${s.pMin.toFixed(4)},${s.pMax.toFixed(4)}] mean=${s.pMean.toFixed(4)}, n>thr=${s.pAbove}`);
+        }
+      }
+    );
+    await session.release();
+    postLog(`Inference complete in ${((performance.now() - inferenceStartTime) / 1000).toFixed(1)}s`);
 
-  // Inverse orient
-  if (!workerState.isIdentity) {
-    outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
-  }
+    // Stash the unmasked (pre-CC) labels for downstream browser processing.
+    postProgress(0.86, 'Inverse transform...');
+    const preCleanupRAS = modelOutputToRas(result.preCleanupLabels, result.dims, Uint8Array);
+    workerState.segLabelsRAS = new Uint8Array(preCleanupRAS.data);
+    workerState.segMinComponentSize = minComponentSize;
+    emitSegmentationStateArtifact();
 
-  // Create output NIfTI
-  const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
-  postStageData('segmentation', outputNifti, 'SCT segmentation');
+    let outputLabels = modelOutputToRas(result.labels, result.dims, Uint8Array).data;
 
-  let finalVoxels = 0;
-  for (let i = 0; i < outputLabels.length; i++) {
-    if (outputLabels[i] > 0) finalVoxels++;
-  }
-  postLog(`Output: ${finalVoxels} foreground voxels`);
-  if (finalVoxels === 0) {
-    postLog(`WARNING: Segmentation is empty. Probability map max=${result.probStats.max.toFixed(4)} (threshold=${threshold}). Try lowering the probability threshold or check input contrast/orientation.`);
+    // Inverse orient
+    if (!workerState.isIdentity) {
+      outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+    }
+
+    // Create output NIfTI
+    const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+    postStageData('segmentation', outputNifti, 'SCT segmentation');
+
+    let finalVoxels = 0;
+    for (let i = 0; i < outputLabels.length; i++) {
+      if (outputLabels[i] > 0) finalVoxels++;
+    }
+    postLog(`Output: ${finalVoxels} foreground voxels`);
+    if (finalVoxels === 0) {
+      postLog(`WARNING: Segmentation is empty. Probability map max=${result.probStats.max.toFixed(4)} (threshold=${threshold}). Try lowering the probability threshold or check input contrast/orientation.`);
+    }
   }
 
   postProgress(1.0, 'Complete');
