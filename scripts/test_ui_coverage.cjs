@@ -61,6 +61,10 @@ const UI_COVERAGE = Object.freeze([
   { id: 'resetWindow', behavior: 'resets display window', coveredBy: ['static-dom'] },
   { id: 'copyConsole', behavior: 'copies console output', coveredBy: ['static-dom'] },
   { id: 'clearConsole', behavior: 'clears console output', coveredBy: ['static-dom'] },
+  { id: 'enterAppButton', behavior: 'dismisses the start page and enters the SCT workflow', coveredBy: ['static-dom'] },
+  { id: 'startPrivacyButton', behavior: 'opens Privacy modal from the start page header', coveredBy: ['static-dom'] },
+  { id: 'startPrivacyInlineButton', behavior: 'opens Privacy modal from the start page body', coveredBy: ['static-dom'] },
+  { id: 'startCitationsButton', behavior: 'opens Citations modal from the start page header', coveredBy: ['static-dom'] },
   { id: 'aboutButton', behavior: 'opens About modal', coveredBy: ['static-dom'] },
   { id: 'closeAbout', behavior: 'closes About modal', coveredBy: ['static-dom'] },
   { id: 'citationsButton', behavior: 'opens Citations modal', coveredBy: ['static-dom'] },
@@ -99,5 +103,22 @@ assert.deepEqual(missingCoverage, [], `interactive ids missing UI coverage entri
 
 assert.ok(appJs.includes("querySelectorAll('.view-tab[data-view]')"), 'view tab controls are wired');
 assert.ok(indexHtml.includes('class="view-tab'), 'view tab controls exist');
+assert.ok(indexHtml.includes('<section class="start-page" id="startPage"'), 'start page overlay exists');
+assert.ok(appJs.includes("startPage.classList.add('hidden')"), 'start page enters app by hiding overlay');
+assert.ok(appJs.includes("document.getElementById('fileInput')?.focus()"), 'start page handoff focuses the input workflow');
+assert.ok(appJs.includes("bindModalButton('startPrivacyButton', this.privacyModal)"), 'start page Privacy header button is wired');
+assert.ok(appJs.includes("bindModalButton('startPrivacyInlineButton', this.privacyModal)"), 'start page Privacy body button is wired');
+assert.ok(appJs.includes("bindModalButton('startCitationsButton', this.citationsModal)"), 'start page Citations button is wired');
+assert.ok(indexHtml.includes('id="moreAppsLink"'), 'main app header More Apps link exists');
+assert.ok(indexHtml.includes('https://neurodesk.org/getting-started/hosted/webapps/'), 'More Apps links target the Neurodesk hosted web apps index');
+assert.ok(indexHtml.includes('Cloudflare Web Analytics'), 'Cloudflare analytics marker exists');
+assert.ok(
+  indexHtml.includes("<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"dc30b44a05064167a50cc46f90664682\"}'></script>"),
+  'Cloudflare analytics script uses the expected token'
+);
+assert.ok(
+  indexHtml.includes('Cloudflare Web Analytics collects aggregate page usage and performance metrics'),
+  'privacy copy discloses Cloudflare analytics scope'
+);
 
 console.log(`UI coverage contract passed: ${UI_COVERAGE.length} controls mapped`);

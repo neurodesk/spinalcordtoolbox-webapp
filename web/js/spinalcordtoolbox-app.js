@@ -89,6 +89,8 @@ class SpinalCordToolboxApp {
     this.citationsModal = new ModalManager('citationsModal');
     this.privacyModal = new ModalManager('privacyModal');
 
+    this.setupShellEventListeners();
+
     // Register custom colormap
     const colormapData = generateNiivueColormap(this.selectedTask.id);
 
@@ -265,21 +267,48 @@ class SpinalCordToolboxApp {
     const clearResults = document.getElementById('clearResults');
     if (clearResults) clearResults.addEventListener('click', () => this.clearResults());
 
-    // Modal buttons
-    const aboutBtn = document.getElementById('aboutButton');
-    if (aboutBtn) aboutBtn.addEventListener('click', () => this.aboutModal.open());
-    const closeAbout = document.getElementById('closeAbout');
-    if (closeAbout) closeAbout.addEventListener('click', () => this.aboutModal.close());
+  }
 
-    const citationsBtn = document.getElementById('citationsButton');
-    if (citationsBtn) citationsBtn.addEventListener('click', () => this.citationsModal.open());
-    const closeCitations = document.getElementById('closeCitations');
-    if (closeCitations) closeCitations.addEventListener('click', () => this.citationsModal.close());
+  setupShellEventListeners() {
+    this.bindStartPageControls();
+    this.bindModalButton('aboutButton', this.aboutModal);
+    this.bindModalButton('citationsButton', this.citationsModal);
+    this.bindModalButton('startCitationsButton', this.citationsModal);
+    this.bindModalButton('privacyButton', this.privacyModal);
+    this.bindModalButton('startPrivacyButton', this.privacyModal);
+    this.bindModalButton('startPrivacyInlineButton', this.privacyModal);
+    this.bindCloseButton('closeAbout', this.aboutModal);
+    this.bindCloseButton('closeCitations', this.citationsModal);
+    this.bindCloseButton('closePrivacy', this.privacyModal);
+  }
 
-    const privacyBtn = document.getElementById('privacyButton');
-    if (privacyBtn) privacyBtn.addEventListener('click', () => this.privacyModal.open());
-    const closePrivacy = document.getElementById('closePrivacy');
-    if (closePrivacy) closePrivacy.addEventListener('click', () => this.privacyModal.close());
+  bindModalButton(buttonId, modal) {
+    const button = document.getElementById(buttonId);
+    if (button) button.addEventListener('click', () => modal.open());
+  }
+
+  bindCloseButton(buttonId, modal) {
+    const button = document.getElementById(buttonId);
+    if (button) button.addEventListener('click', () => modal.close());
+  }
+
+  bindStartPageControls() {
+    const startPage = document.getElementById('startPage');
+    const enterButton = document.getElementById('enterAppButton');
+    if (!startPage || !enterButton) return;
+
+    enterButton.addEventListener('click', () => {
+      startPage.classList.add('hidden');
+      document.getElementById('fileInput')?.focus();
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        try {
+          this.nv?.drawScene?.();
+        } catch (err) {
+          this.updateOutput(`Viewer redraw deferred: ${err.message}`);
+        }
+      });
+    });
   }
 
   populateTaskSelector() {
