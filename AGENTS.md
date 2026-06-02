@@ -42,6 +42,7 @@ Common issues it catches:
 - Route input/segmentation visibility changes through `renderViewerVolumes()` so the Results eye buttons and toolbar input toggle rebuild a consistent NiiVue volume stack.
 - Config version is bumped by the manual GitHub Actions release workflow via `sed`; it increments the patch version — do not bump manually
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
+- Keep the Citations modal primary SpinalCordToolbox entry anchored on the De Leener et al. NeuroImage 2017 SCT paper and the stable documentation link.
 - SCT Processing controls should not include explanatory copy about synthetic validation fixtures or generated task metadata.
 - SCT Processing should only expose operations wired to the current loaded case and real output stages. Do not add pure helper/demo operations to the operation dropdown; `npm run test:routing` enforces that only vertebral labeling is exposed today.
 - The `#startPage` overlay mirrors CALMaR's local-first entry screen: keep `enterAppButton`, start-page Privacy/Citations buttons, the More Apps links, and the same shared modals wired through `spinalcordtoolbox-app.js`. If the Cloudflare Web Analytics token or privacy copy changes, update `scripts/test_ui_coverage.cjs` in the same change.

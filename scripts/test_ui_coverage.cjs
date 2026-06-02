@@ -120,5 +120,9 @@ assert.ok(
   indexHtml.includes('Cloudflare Web Analytics collects aggregate page usage and performance metrics'),
   'privacy copy discloses Cloudflare analytics scope'
 );
+assert.ok(
+  indexHtml.includes('SCT: Spinal Cord Toolbox, an open-source software for processing spinal cord MRI data'),
+  'Citations modal includes the primary SCT NeuroImage citation'
+);
 
 console.log(`UI coverage contract passed: ${UI_COVERAGE.length} controls mapped`);
