@@ -86,7 +86,7 @@ Common issues it catches:
 | `npm run test:fixtures:generate` | Regenerates `browser_output.nii.gz` by running real ONNX inference (Node-only, no browser) |
 | `npm run test:controllers` | `FileIOController`, `DicomController`, `InferenceExecutor` against fake DOM/Worker |
 | `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager` against fake DOM |
-| `npm run test:ci-summary` | Release-workflow test log summarizer used to publish failed npm script/test details in GitHub Actions summaries |
+| `npm run test:ci-summary` | Full-test workflow log summarizer used to publish failed npm script/test details in GitHub Actions summaries |
 | `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
 | `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
 | `npm run test:server` | Dev server graceful restart |
@@ -95,8 +95,9 @@ Common issues it catches:
 
 ## CI/CD
 
-- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion. The `validate` job runs the full `npm test` (including heavy ONNX-inference tests), captures failed-test details in the Actions step summary/job outputs, and the `release` job only runs on green and bumps version, creates tag + GitHub release.
-- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): deploys staging from `main` immediately on pushes to `main`, and deploys production from the latest release tag after the manual release workflow completes successfully. It downloads ONNX Runtime WASM files and verifies model assets before deploying to GitHub Pages; tests are run by the release workflow, not the deploy workflow.
+- **Release workflow** (`.github/workflows/release.yml`): manual-only promotion that bumps version, creates the release tag, and creates/updates the GitHub release. It does not run the full `npm test` suite.
+- **Full Test Suite workflow** (`.github/workflows/full-test-suite.yml`): manual-only test workflow that runs the full `npm test` suite (including heavy ONNX-inference tests) and publishes failed-test details in the Actions step summary.
+- **Deploy workflow** (`.github/workflows/deploy-pages.yml`): deploys staging from `main` immediately on pushes to `main`, and deploys production from the latest release tag after the manual release workflow completes successfully. It downloads ONNX Runtime WASM files and verifies model assets before deploying to GitHub Pages; tests are run by the manual Full Test Suite workflow, not by release or deploy.
 - GitHub Pages deploys must check out Git LFS assets and verify `web/models/*.onnx` are real model binaries, not LFS pointer files.
 - Production deploys build from the latest release tag while the workflow file comes from `main`; asset verification must tolerate older release tags by validating ONNX files and template `.nii.gz` files that exist in the checked-out build, without hard-coding newer template paths.
 
