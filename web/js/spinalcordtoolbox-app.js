@@ -13,7 +13,7 @@ import { ProgressManager } from './modules/ui/ProgressManager.js';
 import { ModalManager } from './modules/ui/ModalManager.js';
 import * as Config from './app/config.js';
 import { generateNiivueColormap, getLabelName } from './app/labels.js';
-import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, isTaskRunnable } from './app/sct-tasks.js';
+import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, getTaskModelUrl, isTaskRunnable } from './app/sct-tasks.js';
 import { computeAutoWindow } from './modules/ui/percentile.js';
 import './modules/sct-processing.js';
 
@@ -823,6 +823,7 @@ class SpinalCordToolboxApp {
     }
 
     const modelBaseUrl = new URL(Config.MODEL_BASE_URL, window.location.href).href;
+    const modelUrl = getTaskModelUrl(selectedTask);
     this.beginAbortableStep('inference');
 
     // Clear previous results — including any vertebrae mask, which is derived
@@ -849,6 +850,7 @@ class SpinalCordToolboxApp {
         appVersion: Config.VERSION
       },
       modelName: selectedAsset?.filename || Config.MODEL.name,
+      modelUrl: modelUrl ? new URL(modelUrl, window.location.href).href : null,
       patchSize: effectivePatchSize,
       preprocessing: selectedAsset?.preprocessing || {},
       output: selectedAsset?.output || {},

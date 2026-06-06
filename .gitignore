@@ -6,6 +6,7 @@ web/preprocessing-wasm/
 
 # Model files
 # web/models/*.onnx
+web/models/totalspineseg-step1.onnx
 
 # OS files
 .DS_Store

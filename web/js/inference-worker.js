@@ -1037,6 +1037,7 @@ async function stepInference(params) {
     taskId = 'spinalcord',
     modelAssetId = 'sct-spinalcord',
     modelName = 'sct-spinalcord.onnx',
+    modelUrl,
     patchSize = [64, 64, 64],
     modelBaseUrl,
     supportStatus = 'unvalidated',
@@ -1054,8 +1055,8 @@ async function stepInference(params) {
 
   // Download + create ONNX session.
   self._modelCacheKey = cacheKey || `${taskId}:${modelAssetId}:${self._appVersion || ''}`;
-  const modelUrl = `${modelBaseUrl}/${modelName}`;
-  const modelData = await fetchModel(modelUrl, modelName, 0.05, 0.15);
+  const resolvedModelUrl = modelUrl || `${modelBaseUrl}/${modelName}`;
+  const modelData = await fetchModel(resolvedModelUrl, modelName, 0.05, 0.15);
   self._modelCacheKey = null;
 
   postProgress(0.22, 'Loading ONNX model...');
@@ -1524,6 +1525,7 @@ self.onmessage = async (e) => {
           threshold: settings.threshold ?? settings.probabilityThreshold,
           minComponentSize: settings.minComponentSize,
           modelName: settings.modelName,
+          modelUrl: settings.modelUrl,
           patchSize: settings.patchSize,
           preprocessing: settings.preprocessing,
           output: settings.output,

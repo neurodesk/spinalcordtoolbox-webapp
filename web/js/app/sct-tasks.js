@@ -1,6 +1,8 @@
 import { VERSION, MODEL_BASE_URL } from './config.js';
 
 export const SCT_STABLE_SOURCE = 'https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html';
+const HF_DATASET_ASSET_REVISION = '55c9462a14bc9c84cf093c348cffda9148099df9';
+const HF_DATASET_ASSET_BASE_URL = `https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/${HF_DATASET_ASSET_REVISION}`;
 
 export const TASK_STATUS = Object.freeze({
   SUPPORTED: 'supported',
@@ -535,6 +537,7 @@ export const SCT_TASKS = [
         sourceFormat: 'TotalSpineSeg nnUNet package',
         browserFormat: 'onnx',
         filename: 'totalspineseg-step1.onnx',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/totalspineseg-step1.onnx`,
         conversionStatus: 'converted',
         checksum: 'sha256:22f2e6e0b7a028a80ddd8b211d5c732da8c23a6dbb059fb9d379a67b3f9ce74c',
         sizeBytes: 564385004,
@@ -685,6 +688,7 @@ export function buildManifest() {
 export function getTaskModelUrl(taskOrId) {
   const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
   const asset = getPrimaryModelAsset(task);
+  if (asset?.downloadUrl) return asset.downloadUrl;
   if (!asset?.filename) return null;
   return `${MODEL_BASE_URL}/${asset.filename}`;
 }

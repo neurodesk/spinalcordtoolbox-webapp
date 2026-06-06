@@ -311,6 +311,7 @@ async function runWorkerCase(testCase) {
           threshold: asset?.inferenceDefaults?.probabilityThreshold ?? 0.5,
           minComponentSize: asset?.inferenceDefaults?.minComponentSize ?? 10,
           modelName: testCase.modelName,
+          modelUrl: asset?.downloadUrl || null,
           patchSize: testCase.patchSize || asset?.patchSize,
           preprocessing: asset?.preprocessing || {},
           output: asset?.output || {},

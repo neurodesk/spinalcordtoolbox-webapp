@@ -19,7 +19,8 @@ const ROOT = path.resolve(__dirname, '..');
 const {
   SCT_TASKS,
   isTaskRunnable,
-  getPrimaryModelAsset
+  getPrimaryModelAsset,
+  getTaskModelUrl
 } = await import(pathToFileURL(path.join(ROOT, 'web/js/app/sct-tasks.js')));
 
 // Tasks offered in the segmentation dropdown must each have a primary model
@@ -56,6 +57,8 @@ assert.equal(getPrimaryModelAsset(spine)?.preprocessing?.modelOrientation, 'RAS'
 assert.equal(getPrimaryModelAsset(spine)?.preprocessing?.modelAxisOrder, 'zyx', 'spine must feed TotalSpineSeg in nnU-Net zyx tensor order');
 assert.deepEqual(getPrimaryModelAsset(spine)?.output?.labelPriority, [1, 2, 3, 4, 5, 6, 7, 8, 9], 'spine must collapse TotalSpineSeg regions in nnU-Net regions_class_order');
 assert.equal(getPrimaryModelAsset(spine)?.output?.paddingMode, 'center-min-patch', 'spine must use nnU-Net centered padding for short axes');
+assert.match(getPrimaryModelAsset(spine)?.downloadUrl || '', /^https:\/\/huggingface\.co\/datasets\/sbollmann\/sct-webapp-data\/resolve\/[0-9a-f]{40}\/web\/models\/totalspineseg-step1\.onnx$/, 'spine ONNX must be hosted on the Hugging Face dataset at a pinned revision');
+assert.equal(getTaskModelUrl(spine), getPrimaryModelAsset(spine)?.downloadUrl, 'spine runtime URL must resolve to the Hugging Face-hosted ONNX asset');
 assert.deepEqual(spine.outputStages?.map(stage => stage.id), ['spine_step1', 'spine_discs'], 'spine must declare TotalSpineSeg step-1 and disc-label stages');
 assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_step1')?.visibleByDefault, false, 'raw TotalSpineSeg step-1 localizer must be hidden by default');
 assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_discs')?.visibleByDefault, true, 'TotalSpineSeg disc labels must be visible by default');
@@ -75,6 +78,10 @@ assert.doesNotMatch(
 // 'vertebrae' to runVertebralLabeling rather than to runInference.
 const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
 assert.match(appJs, /operation === 'vertebrae'[\s\S]*?hasResult\('segmentation'\)[\s\S]*?runVertebralLabeling/, 'runProcessingOperation must route vertebrae to runVertebralLabeling, gated on segmentation');
+assert.match(appJs, /getTaskModelUrl\(selectedTask\)[\s\S]*?modelUrl:\s*modelUrl\s*\?/, 'runInference must pass the resolved per-asset model URL into the worker');
+
+const workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
+assert.match(workerJs, /resolvedModelUrl\s*=\s*modelUrl\s*\|\|\s*`\$\{modelBaseUrl\}\/\$\{modelName\}`/, 'worker must prefer per-asset modelUrl before falling back to MODEL_BASE_URL + filename');
 
 // runInference() must reject processingOnly / asset-less tasks rather than
 // silently falling back to Config.MODEL.name.

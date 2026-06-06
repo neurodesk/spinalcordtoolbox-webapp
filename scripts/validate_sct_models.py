@@ -46,8 +46,11 @@ def validate_asset(asset: dict, where: str, model_dir: Path, errors: list[str]) 
     filename = asset.get("filename")
     if filename and asset.get("conversionStatus") in {"native", "converted"}:
         path = model_dir / filename
-        if not path.exists():
+        download_url = asset.get("downloadUrl")
+        if not path.exists() and not download_url:
             fail(errors, f"{where}: model file does not exist: {path}")
+        if download_url is not None and not isinstance(download_url, str):
+            fail(errors, f"{where}: downloadUrl must be a string")
         if "checksum" not in asset:
             fail(errors, f"{where}: converted/native asset must include checksum")
         expected_size = asset.get("sizeBytes")

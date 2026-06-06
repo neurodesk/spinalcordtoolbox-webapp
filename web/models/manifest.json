@@ -1238,6 +1238,7 @@
           "sourceFormat": "TotalSpineSeg nnUNet package",
           "browserFormat": "onnx",
           "filename": "totalspineseg-step1.onnx",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/totalspineseg-step1.onnx",
           "conversionStatus": "converted",
           "checksum": "sha256:22f2e6e0b7a028a80ddd8b211d5c732da8c23a6dbb059fb9d379a67b3f9ce74c",
           "sizeBytes": 564385004,

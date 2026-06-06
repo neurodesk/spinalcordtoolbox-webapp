@@ -38,6 +38,7 @@ const TASK_FIELDS = ['supportStatus', 'validationStatus', 'processingOnly', 'out
 const ASSET_FIELDS = [
   'id',
   'filename',
+  'downloadUrl',
   'checksum',
   'sizeBytes',
   'patchSize',
