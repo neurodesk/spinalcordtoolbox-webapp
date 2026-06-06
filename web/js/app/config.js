@@ -49,6 +49,8 @@ export const STAGE_NAMES = {
   'segmentation': 'SCT Segmentation',
   'lesion': 'SCI Lesion',
   'vertebrae': 'Vertebral Labels',
+  'spine_step1': 'TotalSpineSeg Labels',
+  'spine_discs': 'Spine Disc Labels',
   'lesion_metrics': 'Lesion Metrics'
 };
 
@@ -60,7 +62,7 @@ export const ONNX_CONFIG = {
 export const CACHE_CONFIG = {
   name: 'SCTModelCache',
   storeName: 'models',
-  maxSizeMB: 500
+  maxSizeMB: 1024
 };
 
 export const PIPELINE_STEPS = ['load', 'inference', 'processing'];

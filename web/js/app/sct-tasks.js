@@ -9,6 +9,65 @@ export const TASK_STATUS = Object.freeze({
   RETIRED: 'retired'
 });
 
+const SPINE_DISC_POINT_LABELS = Object.freeze([
+  { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'Background' },
+  { index: 3, name: 'C2-C3 disc', color: [48, 18, 59, 255], meaning: 'C2-C3 intervertebral disc point' },
+  { index: 4, name: 'C3-C4 disc', color: [61, 52, 139, 255], meaning: 'C3-C4 intervertebral disc point' },
+  { index: 5, name: 'C4-C5 disc', color: [70, 91, 208, 255], meaning: 'C4-C5 intervertebral disc point' },
+  { index: 6, name: 'C5-C6 disc', color: [57, 132, 223, 255], meaning: 'C5-C6 intervertebral disc point' },
+  { index: 7, name: 'C6-C7 disc', color: [39, 173, 220, 255], meaning: 'C6-C7 intervertebral disc point' },
+  { index: 8, name: 'C7-T1 disc', color: [37, 207, 196, 255], meaning: 'C7-T1 intervertebral disc point' },
+  { index: 9, name: 'T1-T2 disc', color: [55, 229, 165, 255], meaning: 'T1-T2 intervertebral disc point' },
+  { index: 10, name: 'T2-T3 disc', color: [88, 242, 129, 255], meaning: 'T2-T3 intervertebral disc point' },
+  { index: 11, name: 'T3-T4 disc', color: [129, 249, 96, 255], meaning: 'T3-T4 intervertebral disc point' },
+  { index: 12, name: 'T4-T5 disc', color: [171, 246, 72, 255], meaning: 'T4-T5 intervertebral disc point' },
+  { index: 13, name: 'T5-T6 disc', color: [210, 236, 57, 255], meaning: 'T5-T6 intervertebral disc point' },
+  { index: 14, name: 'T6-T7 disc', color: [239, 218, 52, 255], meaning: 'T6-T7 intervertebral disc point' },
+  { index: 15, name: 'T7-T8 disc', color: [253, 190, 45, 255], meaning: 'T7-T8 intervertebral disc point' },
+  { index: 16, name: 'T8-T9 disc', color: [254, 159, 39, 255], meaning: 'T8-T9 intervertebral disc point' },
+  { index: 17, name: 'T9-T10 disc', color: [247, 125, 35, 255], meaning: 'T9-T10 intervertebral disc point' },
+  { index: 18, name: 'T10-T11 disc', color: [233, 91, 27, 255], meaning: 'T10-T11 intervertebral disc point' },
+  { index: 19, name: 'T11-T12 disc', color: [209, 57, 21, 255], meaning: 'T11-T12 intervertebral disc point' },
+  { index: 20, name: 'T12-L1 disc', color: [181, 32, 15, 255], meaning: 'T12-L1 intervertebral disc point' },
+  { index: 21, name: 'L1-L2 disc', color: [150, 18, 12, 255], meaning: 'L1-L2 intervertebral disc point' },
+  { index: 22, name: 'L2-L3 disc', color: [119, 14, 28, 255], meaning: 'L2-L3 intervertebral disc point' },
+  { index: 23, name: 'L3-L4 disc', color: [93, 13, 52, 255], meaning: 'L3-L4 intervertebral disc point' },
+  { index: 24, name: 'L4-L5 disc', color: [72, 12, 78, 255], meaning: 'L4-L5 intervertebral disc point' },
+  { index: 25, name: 'L5-S disc', color: [51, 10, 103, 255], meaning: 'L5-S intervertebral disc point' }
+]);
+
+const TOTALSPINESEG_LABELS = Object.freeze([
+  { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'Background' },
+  { index: 1, name: 'Spinal cord', color: [68, 128, 255, 255], meaning: 'Spinal cord' },
+  { index: 2, name: 'Spinal canal', color: [38, 191, 170, 255], meaning: 'Spinal canal' },
+  { index: 11, name: 'C1', color: [48, 18, 59, 255], meaning: 'C1 vertebra' },
+  { index: 50, name: 'Sacrum', color: [166, 64, 43, 255], meaning: 'Sacrum' },
+  { index: 63, name: 'C2-C3 disc', color: [61, 52, 139, 255], meaning: 'C2-C3 intervertebral disc' },
+  { index: 64, name: 'C3-C4 disc', color: [70, 91, 208, 255], meaning: 'C3-C4 intervertebral disc' },
+  { index: 65, name: 'C4-C5 disc', color: [57, 132, 223, 255], meaning: 'C4-C5 intervertebral disc' },
+  { index: 66, name: 'C5-C6 disc', color: [39, 173, 220, 255], meaning: 'C5-C6 intervertebral disc' },
+  { index: 67, name: 'C6-C7 disc', color: [37, 207, 196, 255], meaning: 'C6-C7 intervertebral disc' },
+  { index: 71, name: 'C7-T1 disc', color: [55, 229, 165, 255], meaning: 'C7-T1 intervertebral disc' },
+  { index: 72, name: 'T1-T2 disc', color: [88, 242, 129, 255], meaning: 'T1-T2 intervertebral disc' },
+  { index: 73, name: 'T2-T3 disc', color: [129, 249, 96, 255], meaning: 'T2-T3 intervertebral disc' },
+  { index: 74, name: 'T3-T4 disc', color: [171, 246, 72, 255], meaning: 'T3-T4 intervertebral disc' },
+  { index: 75, name: 'T4-T5 disc', color: [210, 236, 57, 255], meaning: 'T4-T5 intervertebral disc' },
+  { index: 76, name: 'T5-T6 disc', color: [239, 218, 52, 255], meaning: 'T5-T6 intervertebral disc' },
+  { index: 77, name: 'T6-T7 disc', color: [253, 190, 45, 255], meaning: 'T6-T7 intervertebral disc' },
+  { index: 78, name: 'T7-T8 disc', color: [254, 159, 39, 255], meaning: 'T7-T8 intervertebral disc' },
+  { index: 79, name: 'T8-T9 disc', color: [247, 125, 35, 255], meaning: 'T8-T9 intervertebral disc' },
+  { index: 80, name: 'T9-T10 disc', color: [233, 91, 27, 255], meaning: 'T9-T10 intervertebral disc' },
+  { index: 81, name: 'T10-T11 disc', color: [209, 57, 21, 255], meaning: 'T10-T11 intervertebral disc' },
+  { index: 82, name: 'T11-T12 disc', color: [181, 32, 15, 255], meaning: 'T11-T12 intervertebral disc' },
+  { index: 91, name: 'T12-L1 disc', color: [150, 18, 12, 255], meaning: 'T12-L1 intervertebral disc' },
+  { index: 92, name: 'L1-L2 disc', color: [119, 14, 28, 255], meaning: 'L1-L2 intervertebral disc' },
+  { index: 93, name: 'L2-L3 disc', color: [93, 13, 52, 255], meaning: 'L2-L3 intervertebral disc' },
+  { index: 94, name: 'L3-L4 disc', color: [72, 12, 78, 255], meaning: 'L3-L4 intervertebral disc' },
+  { index: 95, name: 'L4-L5 disc', color: [51, 10, 103, 255], meaning: 'L4-L5 intervertebral disc' },
+  { index: 96, name: 'L5-L6 disc', color: [42, 9, 125, 255], meaning: 'L5-L6 intervertebral disc' },
+  { index: 100, name: 'L5-S disc', color: [32, 8, 145, 255], meaning: 'L5-S intervertebral disc' }
+]);
+
 export const SCT_LABELS = Object.freeze({
   spinalcord: [
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'No spinal cord' },
@@ -36,6 +95,8 @@ export const SCT_LABELS = Object.freeze({
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'No lesion' },
     { index: 1, name: 'Lesion', color: [255, 66, 120, 255], meaning: 'Spinal cord lesion' }
   ],
+  spineDiscs: SPINE_DISC_POINT_LABELS,
+  totalspineseg: TOTALSPINESEG_LABELS,
   multiclass: [
     { index: 0, name: 'Background', color: [0, 0, 0, 0], meaning: 'Background' },
     { index: 1, name: 'Class 1', color: [68, 128, 255, 255], meaning: 'Task-defined class 1' },
@@ -439,17 +500,65 @@ export const SCT_TASKS = [
   },
   {
     id: 'spine',
-    displayName: 'Spine',
+    displayName: 'TotalSpineSeg',
     category: 'other-structure',
-    description: 'Spine structure segmentation from SCT stable.',
+    description: 'TotalSpineSeg spine and disc labeling from SCT stable.',
     inputContrasts: ['CT', 'MRI'],
     requiredInputs: [{ role: 'image', contrast: 'supported spine image' }],
     outputType: 'multi-label-mask',
-    labelSet: 'multiclass',
-    supportStatus: TASK_STATUS.UNSUPPORTED,
-    validationStatus: 'not-run',
-    unsupportedReason: 'Not yet converted or validated for browser execution.',
-    modelAssets: []
+    labelSet: 'totalspineseg',
+    supportStatus: TASK_STATUS.SUPPORTED,
+    validationStatus: 'manual-only',
+    validationSummary: 'Converted TotalSpineSeg step-1 r20251124 ResidualEncoderUNet to ONNX and smoke-tested ONNX Runtime shape compatibility. Full SCT fixture parity is pending.',
+    browserParityRequired: false,
+    outputStages: [
+      {
+        id: 'spine_step1',
+        kind: 'nifti',
+        labelSet: 'totalspineseg',
+        visibleByDefault: false,
+        outputSuffix: '_totalspineseg_step1'
+      },
+      {
+        id: 'spine_discs',
+        kind: 'nifti',
+        labelSet: 'spineDiscs',
+        visibleByDefault: true,
+        outputSuffix: '_totalspineseg_discs'
+      }
+    ],
+    modelAssets: [
+      {
+        id: 'totalspineseg-step1',
+        sourceUrl: 'https://github.com/neuropoly/totalspineseg/releases/download/r20251124/Dataset101_TotalSpineSeg_step1_r20251124.zip',
+        sourceVersion: 'r20251124',
+        sourceFormat: 'TotalSpineSeg nnUNet package',
+        browserFormat: 'onnx',
+        filename: 'totalspineseg-step1.onnx',
+        conversionStatus: 'converted',
+        checksum: 'sha256:22f2e6e0b7a028a80ddd8b211d5c732da8c23a6dbb059fb9d379a67b3f9ce74c',
+        sizeBytes: 564385004,
+        patchSize: [256, 256, 48],
+        preprocessing: {
+          modelOrientation: 'RAS',
+          modelAxisOrder: 'zyx',
+          targetSpacing: [1.0, 1.0, 1.0]
+        },
+        inferenceDefaults: {
+          probabilityThreshold: 0.5,
+          minComponentSize: 1,
+          testTimeAugmentation: false
+        },
+        output: {
+          activation: 'sigmoid-labels',
+          channelCount: 9,
+          classLabels: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          labelPriority: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          paddingMode: 'center-min-patch',
+          postprocess: 'totalspineseg-step1'
+        }
+      }
+    ]
   },
   {
     id: 'sc_canal_t2',
@@ -520,6 +629,7 @@ export function getDefaultTask() {
 }
 
 export function getTaskLabels(taskOrId) {
+  if (typeof taskOrId === 'string' && SCT_LABELS[taskOrId]) return SCT_LABELS[taskOrId];
   const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
   return SCT_LABELS[task?.labelSet || 'spinalcord'] || SCT_LABELS.spinalcord;
 }

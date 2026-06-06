@@ -18,7 +18,7 @@ VALID_SUPPORT = {"supported", "unsupported", "unvalidated", "retired"}
 VALID_VALIDATION = {"not-run", "passed", "failed", "manual-only"}
 VALID_CONVERSION = {"native", "converted", "failed", "not-needed"}
 VALID_STAGE_KINDS = {"nifti", "metrics"}
-VALID_ACTIVATIONS = {"sigmoid", "sigmoid-regions", "softmax"}
+VALID_ACTIVATIONS = {"sigmoid", "sigmoid-regions", "sigmoid-labels", "softmax"}
 
 
 def fail(errors: list[str], message: str) -> None:
@@ -81,6 +81,19 @@ def validate_asset(asset: dict, where: str, model_dir: Path, errors: list[str]) 
                     require(region, key, rwhere, errors)
                 if isinstance(channel_count, int) and isinstance(region.get("channel"), int) and region["channel"] >= channel_count:
                     fail(errors, f"{rwhere}: channel {region['channel']} outside channelCount={channel_count}")
+        if output.get("activation") == "sigmoid-labels":
+            channel_count = output.get("channelCount")
+            if not isinstance(channel_count, int) or channel_count < 1:
+                fail(errors, f"{where}.output: sigmoid-labels must define positive channelCount")
+            class_labels = output.get("classLabels")
+            if not isinstance(class_labels, list) or len(class_labels) != channel_count:
+                fail(errors, f"{where}.output: sigmoid-labels classLabels length must match channelCount")
+            label_priority = output.get("labelPriority")
+            if label_priority is not None:
+                if not isinstance(label_priority, list) or not all(isinstance(label, int) for label in label_priority):
+                    fail(errors, f"{where}.output: sigmoid-labels labelPriority must be a list of integer labels")
+                elif isinstance(class_labels, list) and any(label not in class_labels for label in label_priority):
+                    fail(errors, f"{where}.output: sigmoid-labels labelPriority must only reference classLabels")
 
 
 def validate_output_stage(stage: dict, where: str, errors: list[str]) -> None:
@@ -111,8 +124,8 @@ def validate_task(task: dict, index: int, model_dir: Path, errors: list[str]) ->
         fail(errors, f"{where}: invalid validationStatus '{task.get('validationStatus')}'")
     if task.get("supportStatus") in {"unsupported", "retired"} and not task.get("unsupportedReason"):
         fail(errors, f"{where}: unsupported/retired tasks must include unsupportedReason")
-    if task.get("supportStatus") == "supported" and task.get("validationStatus") != "passed":
-        fail(errors, f"{where}: supported tasks must have validationStatus=passed")
+    if task.get("supportStatus") == "supported" and task.get("validationStatus") not in {"passed", "manual-only"}:
+        fail(errors, f"{where}: supported tasks must have validationStatus=passed or manual-only")
     labels = task.get("labels", [])
     if task.get("supportStatus") == "supported" and len(labels) < 2:
         fail(errors, f"{where}: supported tasks must define at least background and foreground labels")

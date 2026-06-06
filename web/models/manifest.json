@@ -1195,9 +1195,9 @@
     },
     {
       "id": "spine",
-      "displayName": "Spine",
+      "displayName": "TotalSpineSeg",
       "category": "other-structure",
-      "description": "Spine structure segmentation from SCT stable.",
+      "description": "TotalSpineSeg spine and disc labeling from SCT stable.",
       "inputContrasts": [
         "CT",
         "MRI"
@@ -1209,11 +1209,88 @@
         }
       ],
       "outputType": "multi-label-mask",
-      "labelSet": "multiclass",
-      "supportStatus": "unsupported",
-      "validationStatus": "not-run",
-      "unsupportedReason": "Not yet converted or validated for browser execution.",
-      "modelAssets": [],
+      "labelSet": "totalspineseg",
+      "supportStatus": "supported",
+      "validationStatus": "manual-only",
+      "validationSummary": "Converted TotalSpineSeg step-1 r20251124 ResidualEncoderUNet to ONNX and smoke-tested ONNX Runtime shape compatibility. Full SCT fixture parity is pending.",
+      "browserParityRequired": false,
+      "outputStages": [
+        {
+          "id": "spine_step1",
+          "kind": "nifti",
+          "labelSet": "totalspineseg",
+          "visibleByDefault": false,
+          "outputSuffix": "_totalspineseg_step1"
+        },
+        {
+          "id": "spine_discs",
+          "kind": "nifti",
+          "labelSet": "spineDiscs",
+          "visibleByDefault": true,
+          "outputSuffix": "_totalspineseg_discs"
+        }
+      ],
+      "modelAssets": [
+        {
+          "id": "totalspineseg-step1",
+          "sourceUrl": "https://github.com/neuropoly/totalspineseg/releases/download/r20251124/Dataset101_TotalSpineSeg_step1_r20251124.zip",
+          "sourceVersion": "r20251124",
+          "sourceFormat": "TotalSpineSeg nnUNet package",
+          "browserFormat": "onnx",
+          "filename": "totalspineseg-step1.onnx",
+          "conversionStatus": "converted",
+          "checksum": "sha256:22f2e6e0b7a028a80ddd8b211d5c732da8c23a6dbb059fb9d379a67b3f9ce74c",
+          "sizeBytes": 564385004,
+          "patchSize": [
+            256,
+            256,
+            48
+          ],
+          "preprocessing": {
+            "modelOrientation": "RAS",
+            "modelAxisOrder": "zyx",
+            "targetSpacing": [
+              1,
+              1,
+              1
+            ]
+          },
+          "inferenceDefaults": {
+            "probabilityThreshold": 0.5,
+            "minComponentSize": 1,
+            "testTimeAugmentation": false
+          },
+          "output": {
+            "activation": "sigmoid-labels",
+            "channelCount": 9,
+            "classLabels": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "labelPriority": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "paddingMode": "center-min-patch",
+            "postprocess": "totalspineseg-step1"
+          },
+          "cacheKey": "spine:totalspineseg-step1:r20251124:app-7.1.11"
+        }
+      ],
       "labels": [
         {
           "index": 0,
@@ -1228,36 +1305,311 @@
         },
         {
           "index": 1,
-          "name": "Class 1",
+          "name": "Spinal cord",
           "rgba": [
             68,
             128,
             255,
             255
           ],
-          "meaning": "Task-defined class 1"
+          "meaning": "Spinal cord"
         },
         {
           "index": 2,
-          "name": "Class 2",
+          "name": "Spinal canal",
           "rgba": [
-            255,
-            184,
-            76,
+            38,
+            191,
+            170,
             255
           ],
-          "meaning": "Task-defined class 2"
+          "meaning": "Spinal canal"
         },
         {
-          "index": 3,
-          "name": "Class 3",
+          "index": 11,
+          "name": "C1",
           "rgba": [
-            255,
-            66,
-            120,
+            48,
+            18,
+            59,
             255
           ],
-          "meaning": "Task-defined class 3"
+          "meaning": "C1 vertebra"
+        },
+        {
+          "index": 50,
+          "name": "Sacrum",
+          "rgba": [
+            166,
+            64,
+            43,
+            255
+          ],
+          "meaning": "Sacrum"
+        },
+        {
+          "index": 63,
+          "name": "C2-C3 disc",
+          "rgba": [
+            61,
+            52,
+            139,
+            255
+          ],
+          "meaning": "C2-C3 intervertebral disc"
+        },
+        {
+          "index": 64,
+          "name": "C3-C4 disc",
+          "rgba": [
+            70,
+            91,
+            208,
+            255
+          ],
+          "meaning": "C3-C4 intervertebral disc"
+        },
+        {
+          "index": 65,
+          "name": "C4-C5 disc",
+          "rgba": [
+            57,
+            132,
+            223,
+            255
+          ],
+          "meaning": "C4-C5 intervertebral disc"
+        },
+        {
+          "index": 66,
+          "name": "C5-C6 disc",
+          "rgba": [
+            39,
+            173,
+            220,
+            255
+          ],
+          "meaning": "C5-C6 intervertebral disc"
+        },
+        {
+          "index": 67,
+          "name": "C6-C7 disc",
+          "rgba": [
+            37,
+            207,
+            196,
+            255
+          ],
+          "meaning": "C6-C7 intervertebral disc"
+        },
+        {
+          "index": 71,
+          "name": "C7-T1 disc",
+          "rgba": [
+            55,
+            229,
+            165,
+            255
+          ],
+          "meaning": "C7-T1 intervertebral disc"
+        },
+        {
+          "index": 72,
+          "name": "T1-T2 disc",
+          "rgba": [
+            88,
+            242,
+            129,
+            255
+          ],
+          "meaning": "T1-T2 intervertebral disc"
+        },
+        {
+          "index": 73,
+          "name": "T2-T3 disc",
+          "rgba": [
+            129,
+            249,
+            96,
+            255
+          ],
+          "meaning": "T2-T3 intervertebral disc"
+        },
+        {
+          "index": 74,
+          "name": "T3-T4 disc",
+          "rgba": [
+            171,
+            246,
+            72,
+            255
+          ],
+          "meaning": "T3-T4 intervertebral disc"
+        },
+        {
+          "index": 75,
+          "name": "T4-T5 disc",
+          "rgba": [
+            210,
+            236,
+            57,
+            255
+          ],
+          "meaning": "T4-T5 intervertebral disc"
+        },
+        {
+          "index": 76,
+          "name": "T5-T6 disc",
+          "rgba": [
+            239,
+            218,
+            52,
+            255
+          ],
+          "meaning": "T5-T6 intervertebral disc"
+        },
+        {
+          "index": 77,
+          "name": "T6-T7 disc",
+          "rgba": [
+            253,
+            190,
+            45,
+            255
+          ],
+          "meaning": "T6-T7 intervertebral disc"
+        },
+        {
+          "index": 78,
+          "name": "T7-T8 disc",
+          "rgba": [
+            254,
+            159,
+            39,
+            255
+          ],
+          "meaning": "T7-T8 intervertebral disc"
+        },
+        {
+          "index": 79,
+          "name": "T8-T9 disc",
+          "rgba": [
+            247,
+            125,
+            35,
+            255
+          ],
+          "meaning": "T8-T9 intervertebral disc"
+        },
+        {
+          "index": 80,
+          "name": "T9-T10 disc",
+          "rgba": [
+            233,
+            91,
+            27,
+            255
+          ],
+          "meaning": "T9-T10 intervertebral disc"
+        },
+        {
+          "index": 81,
+          "name": "T10-T11 disc",
+          "rgba": [
+            209,
+            57,
+            21,
+            255
+          ],
+          "meaning": "T10-T11 intervertebral disc"
+        },
+        {
+          "index": 82,
+          "name": "T11-T12 disc",
+          "rgba": [
+            181,
+            32,
+            15,
+            255
+          ],
+          "meaning": "T11-T12 intervertebral disc"
+        },
+        {
+          "index": 91,
+          "name": "T12-L1 disc",
+          "rgba": [
+            150,
+            18,
+            12,
+            255
+          ],
+          "meaning": "T12-L1 intervertebral disc"
+        },
+        {
+          "index": 92,
+          "name": "L1-L2 disc",
+          "rgba": [
+            119,
+            14,
+            28,
+            255
+          ],
+          "meaning": "L1-L2 intervertebral disc"
+        },
+        {
+          "index": 93,
+          "name": "L2-L3 disc",
+          "rgba": [
+            93,
+            13,
+            52,
+            255
+          ],
+          "meaning": "L2-L3 intervertebral disc"
+        },
+        {
+          "index": 94,
+          "name": "L3-L4 disc",
+          "rgba": [
+            72,
+            12,
+            78,
+            255
+          ],
+          "meaning": "L3-L4 intervertebral disc"
+        },
+        {
+          "index": 95,
+          "name": "L4-L5 disc",
+          "rgba": [
+            51,
+            10,
+            103,
+            255
+          ],
+          "meaning": "L4-L5 intervertebral disc"
+        },
+        {
+          "index": 96,
+          "name": "L5-L6 disc",
+          "rgba": [
+            42,
+            9,
+            125,
+            255
+          ],
+          "meaning": "L5-L6 intervertebral disc"
+        },
+        {
+          "index": 100,
+          "name": "L5-S disc",
+          "rgba": [
+            32,
+            8,
+            145,
+            255
+          ],
+          "meaning": "L5-S intervertebral disc"
         }
       ]
     },

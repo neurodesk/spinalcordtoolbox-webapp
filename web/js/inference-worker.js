@@ -7,7 +7,7 @@
  *   2. Inference (resample → normalize → crop → sliding window → threshold → CC → inverse)
  */
 
-/* global importScripts, ort, localforage, nifti, SCTInferencePipeline, SCTLesionAnalysis */
+/* global importScripts, ort, localforage, nifti, SCTInferencePipeline, SCTLesionAnalysis, TotalSpineSeg */
 
 importScripts('../wasm/ort.webgpu.min.js');
 importScripts('https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js');
@@ -15,6 +15,7 @@ importScripts('../nifti-js/index.js');
 importScripts('./inference-pipeline.js');
 importScripts('./modules/lesion-analysis.js');
 importScripts('./modules/vertebrae.js');
+importScripts('./modules/totalspineseg.js');
 
 const FIXED_TARGET_SPACING = [0.3, 0.3, 0.3];
 const MAX_PROCESSING_VOXELS = 100 * 1024 * 1024;
@@ -783,6 +784,7 @@ function flipVolumeAxes(data, dims, axes, OutputCtor) {
 function orientationFlipAxesFromRAS(modelOrientation) {
   if (!modelOrientation || modelOrientation === 'RAS') return [];
   if (modelOrientation === 'RPI') return [1, 2];
+  if (modelOrientation === 'LPI') return [0, 1, 2];
   throw new Error(`Unsupported modelOrientation "${modelOrientation}"`);
 }
 
@@ -1212,6 +1214,138 @@ async function stepInference(params) {
       postMetricsData('lesion_metrics', metrics, 'SCI lesion metrics');
       postLog(`Lesion metrics: ${metrics.summary.lesion_count} lesion(s), total volume=${metrics.summary.total_volume_mm3} mm^3`);
     }
+  } else if (output.activation === 'sigmoid-labels') {
+    const channelCount = output.channelCount || output.channelOrder?.length || output.classLabels?.length || 1;
+    const result = await SCTInferencePipeline.runSigmoidLabelInferencePipeline(
+      {
+        data: modelInputData,
+        dims: modelInputDims,
+        patchSize
+      },
+      runPatch,
+      {
+        overlap,
+        threshold,
+        testTimeAugmentation,
+        channelCount,
+        classLabels: output.classLabels,
+        labelPriority: output.labelPriority,
+        paddingMode: output.paddingMode,
+        onLog: (msg) => postLog(msg),
+        onProgress: progressHandler,
+        onPatchStats: (pi, s) => {
+          const channelText = s.channels.map(channel => (
+            `c${channel.channel}: logit=[${channel.oMin.toFixed(3)},${channel.oMax.toFixed(3)}], prob=[${channel.pMin.toFixed(4)},${channel.pMax.toFixed(4)}] mean=${channel.pMean.toFixed(4)}, n>thr=${channel.pAbove}`
+          )).join('; ');
+          postLog(`Patch ${pi} pos=[${s.pos}]: in=[${s.inMin.toFixed(3)},${s.inMax.toFixed(3)}] mean=${s.inMean.toFixed(3)}; ${channelText}`);
+        }
+      }
+    );
+    await session.release();
+    postLog(`Inference complete in ${((performance.now() - inferenceStartTime) / 1000).toFixed(1)}s`);
+
+    postProgress(0.86, 'Inverse transform...');
+    const rawRAS = modelOutputToRas(result.labels, result.dims, Uint8Array);
+    if (output.postprocess === 'totalspineseg-step1') {
+      if (!self.TotalSpineSeg) throw new Error('TotalSpineSeg post-processing module is not available.');
+      postProgress(0.90, 'Labeling TotalSpineSeg discs...');
+      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims);
+      for (const warning of processed.warnings) postLog(`TotalSpineSeg warning: ${warning}`);
+
+      const stages = [
+        {
+          stage: 'spine_step1',
+          labels: processed.step1Labels,
+          description: 'TotalSpineSeg step 1 labels'
+        },
+        {
+          stage: 'spine_discs',
+          labels: processed.discLabels,
+          description: 'TotalSpineSeg disc labels'
+        }
+      ];
+
+      for (const stageOutput of stages) {
+        let outputLabels = stageOutput.labels;
+        if (!workerState.isIdentity) {
+          outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+        }
+        const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+        postStageData(stageOutput.stage, outputNifti, stageOutput.description);
+      }
+    } else {
+      let outputLabels = rawRAS.data;
+      if (!workerState.isIdentity) {
+        outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+      }
+      const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+      postStageData('segmentation', outputNifti, 'SCT sigmoid-label segmentation');
+    }
+  } else if (output.activation === 'softmax') {
+    const channelCount = output.channelCount || output.channelOrder?.length || output.classLabels?.length || 1;
+    const result = await SCTInferencePipeline.runMulticlassInferencePipeline(
+      {
+        data: modelInputData,
+        dims: modelInputDims,
+        patchSize
+      },
+      runPatch,
+      {
+        overlap,
+        testTimeAugmentation,
+        channelCount,
+        classLabels: output.classLabels,
+        paddingMode: output.paddingMode,
+        onLog: (msg) => postLog(msg),
+        onProgress: progressHandler,
+        onPatchStats: (pi, s) => {
+          const channelText = s.channels.map(channel => (
+            `c${channel.channel}: logit=[${channel.oMin.toFixed(3)},${channel.oMax.toFixed(3)}], prob=[${channel.pMin.toFixed(4)},${channel.pMax.toFixed(4)}] mean=${channel.pMean.toFixed(4)}`
+          )).join('; ');
+          postLog(`Patch ${pi} pos=[${s.pos}]: in=[${s.inMin.toFixed(3)},${s.inMax.toFixed(3)}] mean=${s.inMean.toFixed(3)}; ${channelText}`);
+        }
+      }
+    );
+    await session.release();
+    postLog(`Inference complete in ${((performance.now() - inferenceStartTime) / 1000).toFixed(1)}s`);
+
+    postProgress(0.86, 'Inverse transform...');
+    const rawRAS = modelOutputToRas(result.labels, result.dims, Uint8Array);
+    if (output.postprocess === 'totalspineseg-step1') {
+      if (!self.TotalSpineSeg) throw new Error('TotalSpineSeg post-processing module is not available.');
+      postProgress(0.90, 'Labeling TotalSpineSeg discs...');
+      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims);
+      for (const warning of processed.warnings) postLog(`TotalSpineSeg warning: ${warning}`);
+
+      const stages = [
+        {
+          stage: 'spine_step1',
+          labels: processed.step1Labels,
+          description: 'TotalSpineSeg step 1 labels'
+        },
+        {
+          stage: 'spine_discs',
+          labels: processed.discLabels,
+          description: 'TotalSpineSeg disc labels'
+        }
+      ];
+
+      for (const stageOutput of stages) {
+        let outputLabels = stageOutput.labels;
+        if (!workerState.isIdentity) {
+          outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+        }
+        const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+        postStageData(stageOutput.stage, outputNifti, stageOutput.description);
+      }
+    } else {
+      let outputLabels = rawRAS.data;
+      if (!workerState.isIdentity) {
+        outputLabels = inverseOrient(outputLabels, workerState.rasDims, workerState.perm, workerState.flip, workerState.origDims);
+      }
+      const outputNifti = createOutputNifti(outputLabels, workerState.origHeaderBytes, workerState.origDims);
+      postStageData('segmentation', outputNifti, 'SCT multiclass segmentation');
+    }
   } else {
     // Delegate the per-patch inference + sliding-window orchestration to the
     // shared pipeline module, injecting an ORT-backed runPatch callback.
@@ -1387,11 +1521,12 @@ self.onmessage = async (e) => {
           supportStatus: settings.supportStatus,
           cacheKey: settings.cacheKey,
           provenance: settings.provenance,
-          threshold: settings.probabilityThreshold,
+          threshold: settings.threshold ?? settings.probabilityThreshold,
           minComponentSize: settings.minComponentSize,
           modelName: settings.modelName,
           patchSize: settings.patchSize,
           preprocessing: settings.preprocessing,
+          output: settings.output,
           testTimeAugmentation: settings.testTimeAugmentation,
           modelBaseUrl: settings.modelBaseUrl
         });

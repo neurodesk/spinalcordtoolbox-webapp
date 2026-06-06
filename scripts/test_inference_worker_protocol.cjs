@@ -107,12 +107,14 @@ async function runErrorCase() {
     self: selfObj,
     importScripts: (relPath) => {
       if (typeof relPath !== 'string') return;
-      if (!/inference-pipeline\.js$/.test(relPath)) return;
+      if (!/(inference-pipeline|modules\/lesion-analysis|modules\/vertebrae|modules\/totalspineseg)\.js$/.test(relPath)) return;
       const abs = path.resolve(path.dirname(WORKER_PATH), relPath);
       if (!fs.existsSync(abs)) return;
       const src = fs.readFileSync(abs, 'utf8');
       vm.runInContext(src, sandbox, { filename: abs });
-      if (selfObj.SCTInferencePipeline) sandbox.SCTInferencePipeline = selfObj.SCTInferencePipeline;
+      for (const name of ['SCTInferencePipeline', 'SCTLesionAnalysis', 'VertebraeLabeling', 'TotalSpineSeg']) {
+        if (selfObj[name]) sandbox[name] = selfObj[name];
+      }
     },
     ort: {
       Tensor: ort.Tensor,

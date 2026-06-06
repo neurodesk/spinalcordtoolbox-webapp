@@ -43,7 +43,9 @@ class SpinalCordToolboxApp {
       input: true,
       segmentation: true,
       lesion: true,
-      vertebrae: true
+      vertebrae: true,
+      spine_step1: false,
+      spine_discs: true
     };
     this._renderViewerPromise = Promise.resolve();
     this._renderViewerRequested = false;
@@ -102,6 +104,8 @@ class SpinalCordToolboxApp {
     this.viewerController.registerSctColormap(generateNiivueColormap('spinalcord'), 'sct-spinalcord');
     this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
     this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
+    this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
+    this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
 
     this.setupEventListeners();
     this.populateTaskSelector();
@@ -372,6 +376,8 @@ class SpinalCordToolboxApp {
   getOverlayLabelTaskId(stage) {
     if (stage === 'vertebrae') return 'vertebrae';
     if (stage === 'lesion') return 'lesion_sci_t2';
+    if (stage === 'spine_step1') return 'totalspineseg';
+    if (stage === 'spine_discs') return 'spineDiscs';
     if (stage === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') return 'spinalcord';
     return this.selectedTask?.id || DEFAULT_TASK_ID;
   }
@@ -1193,7 +1199,13 @@ class SpinalCordToolboxApp {
       if (data.stage === 'lesion') {
         this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
       }
-      this.setStageVisible(data.stage, true);
+      if (data.stage === 'spine_step1') {
+        this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
+      }
+      if (data.stage === 'spine_discs') {
+        this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
+      }
+      this.setStageVisible(data.stage, this.getDefaultStageVisibility()[data.stage] !== false);
       this.setStageVisible('input', true);
       const overlayControl = document.getElementById('overlayControl');
       if (overlayControl) overlayControl.classList.remove('hidden');
@@ -1466,12 +1478,14 @@ class SpinalCordToolboxApp {
   }
 
   isOverlayStage(stage) {
-    return stage === 'segmentation' || stage === 'lesion' || stage === 'vertebrae';
+    return stage === 'segmentation' || stage === 'lesion' || stage === 'vertebrae' || stage === 'spine_step1' || stage === 'spine_discs';
   }
 
   getOverlayColormapId(stage) {
     if (stage === 'vertebrae') return 'sct-vertebrae';
     if (stage === 'lesion') return 'sct-lesion';
+    if (stage === 'spine_step1') return 'sct-totalspineseg';
+    if (stage === 'spine_discs') return 'sct-spine-discs';
     if (stage === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') return 'sct-spinalcord';
     return this.getSelectedColormapId();
   }
@@ -1481,7 +1495,9 @@ class SpinalCordToolboxApp {
       input: true,
       segmentation: true,
       lesion: true,
-      vertebrae: true
+      vertebrae: true,
+      spine_step1: false,
+      spine_discs: true
     };
   }
 
@@ -1502,7 +1518,7 @@ class SpinalCordToolboxApp {
   }
 
   getVisibleOverlayStages() {
-    return ['segmentation', 'lesion', 'vertebrae'].filter(stage => (
+    return ['segmentation', 'lesion', 'vertebrae', 'spine_step1', 'spine_discs'].filter(stage => (
       this.isStageVisible(stage) && this.inferenceExecutor.hasResult(stage)
     ));
   }

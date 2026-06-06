@@ -215,21 +215,20 @@ async function runWorkerCase(testCase) {
     self: selfObj,
     // External scripts (ort/localforage/nifti, the wasm bundle) are pre-shimmed
     // via context globals, so we ignore those importScripts calls. For local
-    // pipeline modules we evaluate the file so its UMD bootstrap registers on `self`.
+    // worker modules we evaluate the file so each UMD bootstrap registers on `self`.
     importScripts: (relPath) => {
       if (typeof relPath !== 'string') return;
-      // Only load the inference-pipeline sibling; everything else is shimmed.
-      if (!/inference-pipeline\.js$/.test(relPath)) return;
+      if (!/(inference-pipeline|modules\/lesion-analysis|modules\/vertebrae|modules\/totalspineseg)\.js$/.test(relPath)) return;
       const abs = path.resolve(path.dirname(WORKER_PATH), relPath);
       if (!fs.existsSync(abs)) return;
       const src = fs.readFileSync(abs, 'utf8');
       vm.runInContext(src, sandbox, { filename: abs });
-      // The pipeline UMD bootstrap assigns to `root.SCTInferencePipeline`
+      // The UMD bootstraps assign to `root.*`
       // where root === self in worker context. In our vm sandbox, `self` is a
-      // sandbox property (not the global itself), so promote the export to a
+      // sandbox property (not the global itself), so promote exports to
       // bare global so bare-name references in inference-worker.js resolve.
-      if (selfObj.SCTInferencePipeline) {
-        sandbox.SCTInferencePipeline = selfObj.SCTInferencePipeline;
+      for (const name of ['SCTInferencePipeline', 'SCTLesionAnalysis', 'VertebraeLabeling', 'TotalSpineSeg']) {
+        if (selfObj[name]) sandbox[name] = selfObj[name];
       }
     },
     ort: makeOrtShim(),
@@ -309,11 +308,12 @@ async function runWorkerCase(testCase) {
           supportStatus: 'supported',
           cacheKey: `${testCase.taskId}:${testCase.modelAssetId}:stable`,
           provenance: { taskId: testCase.taskId, appVersion: 'test' },
-          probabilityThreshold: asset?.inferenceDefaults?.probabilityThreshold ?? 0.5,
+          threshold: asset?.inferenceDefaults?.probabilityThreshold ?? 0.5,
           minComponentSize: asset?.inferenceDefaults?.minComponentSize ?? 10,
           modelName: testCase.modelName,
           patchSize: testCase.patchSize || asset?.patchSize,
           preprocessing: asset?.preprocessing || {},
+          output: asset?.output || {},
           testTimeAugmentation: false, // turn off TTA for speed; bug is independent of TTA
           modelBaseUrl: 'http://localhost/web/models'
         }
@@ -325,6 +325,29 @@ async function runWorkerCase(testCase) {
   const timeout = setTimeout(() => rejectDone(new Error('worker did not complete in 5min')), 5 * 60 * 1000);
   await donePromise;
   clearTimeout(timeout);
+
+  if (Array.isArray(testCase.expectedStages) && testCase.expectedStages.length > 0) {
+    for (const stage of testCase.expectedStages) {
+      const stageMsg = messages.find(m => m && m.type === 'stageData' && m.stage === stage);
+      if (!stageMsg) {
+        const emittedStages = messages.filter(m => m && m.type === 'stageData').map(m => m.stage).join(', ') || '(none)';
+        const logTail = messages
+          .filter(m => m && m.type === 'log')
+          .slice(-12)
+          .map(m => m.message)
+          .join('\n');
+        fail(`${testCase.id}: worker did not emit ${stage} stageData; emitted stages: ${emittedStages}\nLog tail:\n${logTail}`);
+      }
+      const produced = decodeWorkerNifti(stageMsg.niftiData);
+      console.log(`${stage}: foreground voxels=${produced.foreground}, dims=${produced.dims.join('x')}`);
+      const minForeground = testCase.minForegroundByStage?.[stage] ?? 1;
+      if (produced.foreground < minForeground) {
+        fail(`${testCase.id}: ${stage} foreground ${produced.foreground} is below minimum ${minForeground}`);
+      }
+    }
+    console.log(`PASS: inference-worker e2e on ${testCase.id}`);
+    return { messages };
+  }
 
   // Find the segmentation stage data
   const stageMsg = messages.find(m => m && m.type === 'stageData' && m.stage === 'segmentation');

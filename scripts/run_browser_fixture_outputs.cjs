@@ -360,6 +360,7 @@ function flipVolumeAxes(data, dims, axes, OutputCtor) {
 function orientationFlipAxesFromRAS(modelOrientation) {
   if (!modelOrientation || modelOrientation === 'RAS') return [];
   if (modelOrientation === 'RPI') return [1, 2];
+  if (modelOrientation === 'LPI') return [0, 1, 2];
   throw new Error(`Unsupported modelOrientation "${modelOrientation}"`);
 }
 

@@ -230,9 +230,9 @@ TASKS = [
     },
     {
         "id": "spine",
-        "displayName": "Spine",
+        "displayName": "TotalSpineSeg",
         "category": "other-structure",
-        "description": "Spine structure segmentation from SCT stable.",
+        "description": "TotalSpineSeg spine and disc labeling from SCT stable.",
         "inputContrasts": ["CT", "MRI"],
         "requiredInputs": [{"role": "image", "contrast": "supported spine image"}],
         "outputType": "multi-label-mask",
