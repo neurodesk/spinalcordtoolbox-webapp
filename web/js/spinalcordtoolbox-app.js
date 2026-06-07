@@ -44,7 +44,7 @@ class SpinalCordToolboxApp {
       segmentation: true,
       lesion: true,
       vertebrae: true,
-      spine_step1: false,
+      spine_step1: true,
       spine_discs: true
     };
     this._renderViewerPromise = Promise.resolve();
@@ -1498,7 +1498,7 @@ class SpinalCordToolboxApp {
       segmentation: true,
       lesion: true,
       vertebrae: true,
-      spine_step1: false,
+      spine_step1: true,
       spine_discs: true
     };
   }

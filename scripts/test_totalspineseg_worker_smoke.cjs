@@ -21,7 +21,7 @@ async function main() {
     expectedStages: ['spine_step1', 'spine_discs'],
     minForegroundByStage: {
       spine_step1: 1,
-      spine_discs: 1
+      spine_discs: 25
     }
   });
 }

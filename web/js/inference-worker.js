@@ -1250,7 +1250,9 @@ async function stepInference(params) {
     if (output.postprocess === 'totalspineseg-step1') {
       if (!self.TotalSpineSeg) throw new Error('TotalSpineSeg post-processing module is not available.');
       postProgress(0.90, 'Labeling TotalSpineSeg discs...');
-      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims);
+      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims, {
+        discPointRadius: output.discPointRadius
+      });
       for (const warning of processed.warnings) postLog(`TotalSpineSeg warning: ${warning}`);
 
       const stages = [
@@ -1315,7 +1317,9 @@ async function stepInference(params) {
     if (output.postprocess === 'totalspineseg-step1') {
       if (!self.TotalSpineSeg) throw new Error('TotalSpineSeg post-processing module is not available.');
       postProgress(0.90, 'Labeling TotalSpineSeg discs...');
-      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims);
+      const processed = self.TotalSpineSeg.postprocessStep1(rawRAS.data, rawRAS.dims, {
+        discPointRadius: output.discPointRadius
+      });
       for (const warning of processed.warnings) postLog(`TotalSpineSeg warning: ${warning}`);
 
       const stages = [

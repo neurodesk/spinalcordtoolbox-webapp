@@ -518,7 +518,7 @@ export const SCT_TASKS = [
         id: 'spine_step1',
         kind: 'nifti',
         labelSet: 'totalspineseg',
-        visibleByDefault: false,
+        visibleByDefault: true,
         outputSuffix: '_totalspineseg_step1'
       },
       {
@@ -558,6 +558,7 @@ export const SCT_TASKS = [
           classLabels: [1, 2, 3, 4, 5, 6, 7, 8, 9],
           labelPriority: [1, 2, 3, 4, 5, 6, 7, 8, 9],
           paddingMode: 'center-min-patch',
+          discPointRadius: 2,
           postprocess: 'totalspineseg-step1'
         }
       }

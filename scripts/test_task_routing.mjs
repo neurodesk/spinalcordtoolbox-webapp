@@ -57,10 +57,11 @@ assert.equal(getPrimaryModelAsset(spine)?.preprocessing?.modelOrientation, 'RAS'
 assert.equal(getPrimaryModelAsset(spine)?.preprocessing?.modelAxisOrder, 'zyx', 'spine must feed TotalSpineSeg in nnU-Net zyx tensor order');
 assert.deepEqual(getPrimaryModelAsset(spine)?.output?.labelPriority, [1, 2, 3, 4, 5, 6, 7, 8, 9], 'spine must collapse TotalSpineSeg regions in nnU-Net regions_class_order');
 assert.equal(getPrimaryModelAsset(spine)?.output?.paddingMode, 'center-min-patch', 'spine must use nnU-Net centered padding for short axes');
+assert.equal(getPrimaryModelAsset(spine)?.output?.discPointRadius, 2, 'spine disc labels must use visible markers rather than one-voxel points');
 assert.match(getPrimaryModelAsset(spine)?.downloadUrl || '', /^https:\/\/huggingface\.co\/datasets\/sbollmann\/sct-webapp-data\/resolve\/[0-9a-f]{40}\/web\/models\/totalspineseg-step1\.onnx$/, 'spine ONNX must be hosted on the Hugging Face dataset at a pinned revision');
 assert.equal(getTaskModelUrl(spine), getPrimaryModelAsset(spine)?.downloadUrl, 'spine runtime URL must resolve to the Hugging Face-hosted ONNX asset');
 assert.deepEqual(spine.outputStages?.map(stage => stage.id), ['spine_step1', 'spine_discs'], 'spine must declare TotalSpineSeg step-1 and disc-label stages');
-assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_step1')?.visibleByDefault, false, 'raw TotalSpineSeg step-1 localizer must be hidden by default');
+assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_step1')?.visibleByDefault, true, 'TotalSpineSeg step-1 labels must be visible by default');
 assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_discs')?.visibleByDefault, true, 'TotalSpineSeg disc labels must be visible by default');
 
 const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
@@ -96,7 +97,7 @@ assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-vertebrae'/, 'getOverlayCo
 assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-lesion'/, 'getOverlayColormapId must map lesion to sct-lesion');
 assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-totalspineseg'/, 'getOverlayColormapId must map TotalSpineSeg labels to sct-totalspineseg');
 assert.match(appJs, /getOverlayColormapId[\s\S]*?'sct-spine-discs'/, 'getOverlayColormapId must map TotalSpineSeg disc points to sct-spine-discs');
-assert.match(appJs, /_stageVisibility\s*=\s*\{[\s\S]*?segmentation:\s*true[\s\S]*?lesion:\s*true[\s\S]*?vertebrae:\s*true[\s\S]*?spine_step1:\s*false[\s\S]*?spine_discs:\s*true/, 'result visibility must be tracked per stage with raw TotalSpineSeg step-1 hidden by default');
+assert.match(appJs, /_stageVisibility\s*=\s*\{[\s\S]*?segmentation:\s*true[\s\S]*?lesion:\s*true[\s\S]*?vertebrae:\s*true[\s\S]*?spine_step1:\s*true[\s\S]*?spine_discs:\s*true/, 'result visibility must show TotalSpineSeg label stages by default');
 assert.match(appJs, /setStageVisible\(data\.stage,\s*this\.getDefaultStageVisibility\(\)\[data\.stage\]\s*!==\s*false\)/, 'new overlay stage data must honor default visibility instead of forcing raw localizers visible');
 assert.match(appJs, /getVisibleOverlayStages\(\)[\s\S]*?\['segmentation', 'lesion', 'vertebrae', 'spine_step1', 'spine_discs'\][\s\S]*?isStageVisible\(stage\)[\s\S]*?hasResult\(stage\)/, 'visible overlay stages must be resolved from per-stage visibility and existing results');
 assert.match(appJs, /stackEntries\s*=\s*\[\{[\s\S]*?stage:\s*baseOverlayStage[\s\S]*?labelMask:\s*true[\s\S]*?loadViewerStackIfChanged\(stackEntries\)/, 'hidden-input rendering must promote the first visible label mask to the base volume with stage tracking');
@@ -132,7 +133,6 @@ assert.deepEqual(getVisibleOverlayStages({ segmentation: true, lesion: false, ve
 assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: true, vertebrae: true }, new Set(['segmentation', 'lesion', 'vertebrae'])), ['lesion', 'vertebrae']);
 assert.deepEqual(getVisibleOverlayStages({ segmentation: true, lesion: true, vertebrae: true }, new Set(['segmentation'])), ['segmentation'], 'must not render missing sibling results');
 assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: false, vertebrae: false }, new Set(['segmentation', 'lesion', 'vertebrae'])), []);
-assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: false, vertebrae: false, spine_step1: true, spine_discs: true }, new Set(['spine_step1', 'spine_discs'])), ['spine_step1', 'spine_discs']);
-assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: false, vertebrae: false, spine_step1: false, spine_discs: true }, new Set(['spine_step1', 'spine_discs'])), ['spine_discs'], 'default TotalSpineSeg view shows disc labels without raw step-1 localizer');
+assert.deepEqual(getVisibleOverlayStages({ segmentation: false, lesion: false, vertebrae: false, spine_step1: true, spine_discs: true }, new Set(['spine_step1', 'spine_discs'])), ['spine_step1', 'spine_discs'], 'default TotalSpineSeg view shows both label stages');
 
 console.log(`Task routing OK: ${segmentationDropdownTasks.length} segmentation task(s) all have model assets; vertebrae is processing-only.`);

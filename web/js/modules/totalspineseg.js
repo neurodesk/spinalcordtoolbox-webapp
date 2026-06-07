@@ -50,6 +50,7 @@
     100
   ]);
   const DEFAULT_STEP1_CLEANUP_DILATE = 5;
+  const DEFAULT_DISC_POINT_RADIUS = 2;
 
   function index3D(x, y, z, dims) {
     return x + y * dims[0] + z * dims[0] * dims[1];
@@ -531,11 +532,33 @@
     return bestIndex;
   }
 
+  function paintDiscPoint(output, dims, centerIndex, label, radius) {
+    const [nx, ny, nz] = dims;
+    const [cx, cy, cz] = coordsFromIndex(centerIndex, dims);
+    const r = Math.max(0, Math.floor(Number(radius) || 0));
+    const r2 = r * r;
+    for (let dz = -r; dz <= r; dz++) {
+      const z = cz + dz;
+      if (z < 0 || z >= nz) continue;
+      for (let dy = -r; dy <= r; dy++) {
+        const y = cy + dy;
+        if (y < 0 || y >= ny) continue;
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy + dz * dz > r2) continue;
+          const x = cx + dx;
+          if (x < 0 || x >= nx) continue;
+          output[index3D(x, y, z, dims)] = label;
+        }
+      }
+    }
+  }
+
   function extractDiscLabelPoints(segmentation, dims, options = {}) {
     assertVolume(segmentation, dims, 'TotalSpineSeg labeled output');
     const output = new Uint8Array(segmentation.length);
     const discLabels = options.discLabels || SCT_DISC_LABELS;
     const pointStartLabel = options.pointStartLabel || 3;
+    const pointRadius = options.discPointRadius == null ? DEFAULT_DISC_POINT_RADIUS : options.discPointRadius;
     const centerlineByZ = buildCenterlineByZ(segmentation, dims, options.centerlineLabels || [TSS_LABELS.CORD, TSS_LABELS.CANAL]);
 
     for (let i = 0; i < discLabels.length; i++) {
@@ -545,7 +568,8 @@
         if (segmentation[index] === label) indices.push(index);
       }
       if (indices.length === 0) continue;
-      output[chooseDiscPoint(indices, segmentation, dims, centerlineByZ)] = pointStartLabel + i;
+      const centerIndex = chooseDiscPoint(indices, segmentation, dims, centerlineByZ);
+      paintDiscPoint(output, dims, centerIndex, pointStartLabel + i, pointRadius);
     }
 
     return output;
@@ -583,6 +607,7 @@
     TSS_LABELS,
     DISC_LANDMARKS,
     SCT_DISC_LABELS,
+    DEFAULT_DISC_POINT_RADIUS,
     index3D,
     coordsFromIndex,
     createRegionSequence,

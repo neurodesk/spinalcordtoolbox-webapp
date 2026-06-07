@@ -48,10 +48,15 @@ function setVoxel(data, dims, x, y, z, value) {
     setVoxel(labeled, dims, 4, 4, 2, 64);
     setVoxel(labeled, dims, 2, 3, 2, 64);
 
-    const points = tss.extractDiscLabelPoints(labeled, dims);
+    const points = tss.extractDiscLabelPoints(labeled, dims, { discPointRadius: 0 });
     assert.equal(points[tss.index3D(1, 2, 3, dims)], 3, 'C2-C3 point is chosen closest to the centerline');
     assert.equal(points[tss.index3D(2, 3, 2, dims)], 4, 'C3-C4 point uses the next SCT disc point label');
     assert.equal(points.filter(Boolean).length, 2, 'one point is emitted per available disc label');
+
+    const visibleMarkers = tss.extractDiscLabelPoints(labeled, dims, { discPointRadius: 1 });
+    assert.equal(visibleMarkers[tss.index3D(1, 2, 3, dims)], 3, 'visible marker keeps the C2-C3 center voxel label');
+    assert.equal(visibleMarkers[tss.index3D(2, 3, 2, dims)], 4, 'visible marker keeps the C3-C4 center voxel label');
+    assert.ok(visibleMarkers.filter(Boolean).length > points.filter(Boolean).length, 'disc label markers are inflated beyond one-voxel points for viewer visibility');
   }
 
   {

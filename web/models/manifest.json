@@ -1219,7 +1219,7 @@
           "id": "spine_step1",
           "kind": "nifti",
           "labelSet": "totalspineseg",
-          "visibleByDefault": false,
+          "visibleByDefault": true,
           "outputSuffix": "_totalspineseg_step1"
         },
         {
@@ -1287,6 +1287,7 @@
               9
             ],
             "paddingMode": "center-min-patch",
+            "discPointRadius": 2,
             "postprocess": "totalspineseg-step1"
           },
           "cacheKey": "spine:totalspineseg-step1:r20251124:app-7.1.11"
