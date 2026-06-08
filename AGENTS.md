@@ -39,6 +39,8 @@ Common issues it catches:
 
 - The inference worker uses `importScripts()` (no ES modules)
 - `ViewerController` owns NiiVue overlay lifecycle; keep segmentation as one managed overlay volume, and use segmentation-as-base mode when the input volume is hidden because NiiVue volume 0 is not a reliable hide target.
+- The app must continue to initialize when Chrome cannot create a WebGL2 context. Keep NiiVue/viewer controls disabled through `disableViewer()`/`isViewerAvailable()` in that mode, but leave file loading, inference, result generation, metrics, and result downloads usable. `npm run test:ui` and `npm run test:compat` cover this startup fallback.
+- `web/coi-serviceworker.js` must always resolve fetch events with a `Response`, including third-party analytics/CORS failures, and must reconstruct 204/205/304 responses with a null body. `npm run test:compat` covers the Chrome Response-constructor regressions.
 - Route input/segmentation visibility changes through `renderViewerVolumes()` so the Results eye buttons and toolbar input toggle rebuild a consistent NiiVue volume stack.
 - Config version is bumped by the manual GitHub Actions release workflow via `sed`; it increments the patch version — do not bump manually
 - Keep model availability metadata internal; user-facing UI copy should describe runnable tasks without release/support commentary.
@@ -80,6 +82,7 @@ Common issues it catches:
 | `npm run test:routing` | Asserts the SCT Segmentation dropdown only offers tasks with a model asset, that `processingOnly` tasks (vertebrae) are gated through SCT Processing → `runVertebralLabeling`, and that label-mask stages render as overlays via `_overlayStage`/`resolveOverlayStage`. Catches the silent fall-back class where `runInference()` would run the default model on a model-less task. |
 | `npm run test:labels` | Asserts `generateNiivueColormap()` emits a step LUT (held stops between consecutive label indices) so NiiVue does not interpolate across discrete labels. |
 | `npm run test:ui` | Static control-presence audit: every `index.html` interactive control is referenced in JS and assigned a coverage source; also checks the start-page handoff and Cloudflare analytics disclosure |
+| `npm run test:compat` | COI service-worker Response handling and static non-WebGL2 viewer fallback invariants |
 | `npm run test:viewer` | `ViewerController` overlay lifecycle against a fake NiiVue |
 | `npm run test:processing` | `sct-processing.js` pure-function unit tests (signal processing, segmentation utilities) |
 | `npm run test:vertebrae` | Vertebral labeling unit and fixture-focused checks: OpenCV HOG/SVM YAML parsing, PAM50 distance propagation, and multilabel Dice on `batch_t2_label_vertebrae` |
@@ -97,7 +100,7 @@ Common issues it catches:
 | `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
 | `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
 | `npm run test:server` | Dev server graceful restart |
-| `npm run test:fast` | Lint + manifest consistency + UI + viewer + processing + vertebrae + TotalSpineSeg + lesion-analysis + inference post-processing + batch + fixtures + controllers + UI modules (no worker e2e/protocol tests) |
+| `npm run test:fast` | Lint + manifest consistency + UI + compatibility + viewer + processing + vertebrae + TotalSpineSeg + lesion-analysis + inference post-processing + batch + fixtures + controllers + UI modules (no worker e2e/protocol tests) |
 | `npm test` | Full suite: `test:fast` + `test:inference:e2e` + `test:worker:protocol` + `test:server` |
 
 ## CI/CD

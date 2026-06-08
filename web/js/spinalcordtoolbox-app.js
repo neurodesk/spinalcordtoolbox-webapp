@@ -51,6 +51,8 @@ class SpinalCordToolboxApp {
     this._renderViewerRequested = false;
     this._lastLocationData = null;
     this.selectedTask = getDefaultTask();
+    this.viewerAvailable = false;
+    this.viewerUnavailableReason = '';
 
     this.init();
   }
@@ -97,15 +99,17 @@ class SpinalCordToolboxApp {
     const colormapData = generateNiivueColormap(this.selectedTask.id);
 
     // Setup
-    await this.setupViewer();
+    const viewerReady = await this.setupViewer();
 
     // Register colormap after viewer is ready
-    this.viewerController.registerSctColormap(colormapData, this.getSelectedColormapId());
-    this.viewerController.registerSctColormap(generateNiivueColormap('spinalcord'), 'sct-spinalcord');
-    this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
-    this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
-    this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
-    this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
+    if (viewerReady) {
+      this.viewerController.registerSctColormap(colormapData, this.getSelectedColormapId());
+      this.viewerController.registerSctColormap(generateNiivueColormap('spinalcord'), 'sct-spinalcord');
+      this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
+      this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
+      this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
+      this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
+    }
 
     this.setupEventListeners();
     this.populateTaskSelector();
@@ -116,11 +120,65 @@ class SpinalCordToolboxApp {
   }
 
   async setupViewer() {
-    await this.nv.attachTo('gl1');
-    this.nv.setMultiplanarPadPixels(5);
-    this.nv.setSliceType(this.nv.sliceTypeMultiplanar);
-    this.nv.setInterpolation(true);
-    this.nv.drawScene();
+    if (!this.browserSupportsWebGL2()) {
+      this.disableViewer('WebGL2 is disabled or unavailable in this browser.');
+      return false;
+    }
+
+    try {
+      await this.nv.attachTo('gl1');
+      this.nv.setMultiplanarPadPixels(5);
+      this.nv.setSliceType(this.nv.sliceTypeMultiplanar);
+      this.nv.setInterpolation(true);
+      this.nv.drawScene();
+      this.viewerAvailable = true;
+      this.setViewerUnavailableMessage('');
+      this.setViewerControlsEnabled(true);
+      return true;
+    } catch (error) {
+      this.disableViewer(error?.message || 'Viewer initialization failed.');
+      return false;
+    }
+  }
+
+  browserSupportsWebGL2() {
+    try {
+      const canvas = document.createElement('canvas');
+      return !!canvas.getContext('webgl2');
+    } catch (error) {
+      return false;
+    }
+  }
+
+  isViewerAvailable() {
+    return this.viewerAvailable && !!this.nv && this.viewerController?.isAvailable?.();
+  }
+
+  disableViewer(reason) {
+    this.viewerAvailable = false;
+    this.viewerUnavailableReason = reason;
+    this.viewerController.nv = null;
+    this.setViewerUnavailableMessage(reason);
+    this.setViewerControlsEnabled(false);
+    this.updateViewerInfo({ string: 'Image preview unavailable' });
+    this.updateOutput(`Image preview unavailable: ${reason}`);
+  }
+
+  setViewerUnavailableMessage(reason) {
+    document.body.classList.toggle('viewer-unavailable', !!reason);
+    const message = document.getElementById('viewerUnavailableMessage');
+    if (message) {
+      message.hidden = !reason;
+      if (reason) {
+        message.textContent = 'Image preview unavailable. WebGL2 is disabled or unavailable in this browser.';
+      }
+    }
+  }
+
+  setViewerControlsEnabled(enabled) {
+    document.querySelectorAll('.viewer-toolbar button, .viewer-toolbar input, .viewer-toolbar select').forEach(control => {
+      control.disabled = !enabled;
+    });
   }
 
   // ==================== Viewer Footer ====================
@@ -138,7 +196,7 @@ class SpinalCordToolboxApp {
   }
 
   getOverlayLabelText(data) {
-    if (!this.nv?.volumes?.length) return '';
+    if (!this.isViewerAvailable() || !this.nv?.volumes?.length) return '';
 
     const visibleLabelStages = this.getVisibleOverlayStages().slice().reverse();
     for (const stage of visibleLabelStages) {
@@ -199,6 +257,7 @@ class SpinalCordToolboxApp {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.view-tab[data-view]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        if (!this.isViewerAvailable()) return;
         this.viewerController.setViewType(btn.dataset.view);
       });
     });
@@ -208,7 +267,7 @@ class SpinalCordToolboxApp {
       opacitySlider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value);
         this._overlaySliderValue = val;
-        if (this.getVisibleOverlayStages().length > 0) {
+        if (this.isViewerAvailable() && this.getVisibleOverlayStages().length > 0) {
           this.viewerController.setOverlayOpacity(val);
         }
         const display = document.getElementById('overlayOpacityValue');
@@ -228,6 +287,7 @@ class SpinalCordToolboxApp {
     const interpToggle = document.getElementById('interpolation');
     if (interpToggle) {
       interpToggle.addEventListener('change', (e) => {
+        if (!this.isViewerAvailable()) return;
         this.nv.setInterpolation(!e.target.checked);
         this.nv.drawScene();
       });
@@ -236,6 +296,7 @@ class SpinalCordToolboxApp {
     const colorbarToggle = document.getElementById('colorbarToggle');
     if (colorbarToggle) {
       colorbarToggle.addEventListener('change', (e) => {
+        if (!this.isViewerAvailable()) return;
         this.nv.opts.isColorbar = e.target.checked;
         this.nv.drawScene();
       });
@@ -244,6 +305,7 @@ class SpinalCordToolboxApp {
     const crosshairToggle = document.getElementById('crosshairToggle');
     if (crosshairToggle) {
       crosshairToggle.addEventListener('change', (e) => {
+        if (!this.isViewerAvailable()) return;
         this.nv.setCrosshairWidth(e.target.checked ? 1 : 0);
       });
     }
@@ -261,7 +323,7 @@ class SpinalCordToolboxApp {
     const colormapSelect = document.getElementById('colormapSelect');
     if (colormapSelect) {
       colormapSelect.addEventListener('change', (e) => {
-        if (this.nv.volumes?.length) {
+        if (this.isViewerAvailable() && this.nv.volumes?.length) {
           this.nv.volumes[0].colormap = e.target.value;
           this.nv.updateGLVolume();
         }
@@ -335,7 +397,9 @@ class SpinalCordToolboxApp {
 
   onTaskSelectionChanged(taskId) {
     this.selectedTask = getTaskById(taskId);
-    this.viewerController.registerSctColormap(generateNiivueColormap(this.selectedTask.id), this.getSelectedColormapId());
+    if (this.isViewerAvailable()) {
+      this.viewerController.registerSctColormap(generateNiivueColormap(this.selectedTask.id), this.getSelectedColormapId());
+    }
     this.applyTaskInferenceDefaults();
     this.updateTaskDetails();
   }
@@ -445,7 +509,7 @@ class SpinalCordToolboxApp {
     };
 
     const applyFromSliders = () => {
-      if (!this.nv.volumes.length) return;
+      if (!this.isViewerAvailable() || !this.nv.volumes.length) return;
       const vol = this.nv.volumes[0];
       const dataMin = vol.global_min ?? 0;
       const dataMax = vol.global_max ?? 1;
@@ -461,7 +525,7 @@ class SpinalCordToolboxApp {
     };
 
     const applyFromInputs = () => {
-      if (!this.nv.volumes.length) return;
+      if (!this.isViewerAvailable() || !this.nv.volumes.length) return;
       const vol = this.nv.volumes[0];
       const newMin = parseFloat(windowMin.value);
       const newMax = parseFloat(windowMax.value);
@@ -492,13 +556,14 @@ class SpinalCordToolboxApp {
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         if (!this.nv.volumes.length) return;
+        if (!this.isViewerAvailable()) return;
         this.applyAutoContrast();
       });
     }
   }
 
   applyAutoContrast() {
-    if (!this.nv.volumes.length) return;
+    if (!this.isViewerAvailable() || !this.nv.volumes.length) return;
     const vol = this.nv.volumes[0];
 
     // computeAutoWindow operates on vol.img which may be raw typed data
@@ -525,7 +590,7 @@ class SpinalCordToolboxApp {
   }
 
   syncWindowControls() {
-    if (!this.nv.volumes.length) return;
+    if (!this.isViewerAvailable() || !this.nv.volumes.length) return;
     const vol = this.nv.volumes[0];
     const windowMin = document.getElementById('windowMin');
     const windowMax = document.getElementById('windowMax');
@@ -537,7 +602,7 @@ class SpinalCordToolboxApp {
   }
 
   syncSlidersToVolume() {
-    if (!this.nv.volumes.length) return;
+    if (!this.isViewerAvailable() || !this.nv.volumes.length) return;
     const vol = this.nv.volumes[0];
     const dataMin = vol.global_min ?? 0;
     const dataMax = vol.global_max ?? 1;
@@ -557,7 +622,7 @@ class SpinalCordToolboxApp {
   }
 
   downloadCurrentVolume() {
-    if (!this.nv.volumes?.length) {
+    if (!this.isViewerAvailable() || !this.nv.volumes?.length) {
       this.updateOutput('No volume loaded');
       return;
     }
@@ -618,6 +683,10 @@ class SpinalCordToolboxApp {
   }
 
   saveScreenshot() {
+    if (!this.isViewerAvailable()) {
+      this.updateOutput('Image preview unavailable');
+      return;
+    }
     let filename = 'spinalcordtoolbox_screenshot.png';
     if (this.nv.volumes?.length) {
       const name = (this.nv.volumes[0].name || 'volume').replace(/\.(nii|nii\.gz)$/i, '');
@@ -635,10 +704,12 @@ class SpinalCordToolboxApp {
     this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
-    await this.viewerController.loadBaseVolume(file, { stage: 'input' });
-    this.applyDefaultBaseColormap();
-    this.syncWindowControls();
-    this.applyAutoContrast();
+    if (this.isViewerAvailable()) {
+      await this.viewerController.loadBaseVolume(file, { stage: 'input' });
+      this.applyDefaultBaseColormap();
+      this.syncWindowControls();
+      this.applyAutoContrast();
+    }
 
     // Send data to worker for loading
     const inputData = await file.arrayBuffer();
@@ -1015,7 +1086,7 @@ class SpinalCordToolboxApp {
     document.querySelectorAll('.view-tab[data-view]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === 'multiplanar');
     });
-    this.viewerController.setViewType('multiplanar');
+    if (this.isViewerAvailable()) this.viewerController.setViewType('multiplanar');
 
     const rangeMin = document.getElementById('rangeMin');
     if (rangeMin) rangeMin.value = '0';
@@ -1051,20 +1122,25 @@ class SpinalCordToolboxApp {
 
     const interpolationToggle = document.getElementById('interpolation');
     if (interpolationToggle) interpolationToggle.checked = false;
-    this.nv.setInterpolation(true);
+    if (this.isViewerAvailable()) this.nv.setInterpolation(true);
 
     const colorbarToggle = document.getElementById('colorbarToggle');
     if (colorbarToggle) colorbarToggle.checked = false;
-    this.nv.opts.isColorbar = false;
+    if (this.isViewerAvailable()) this.nv.opts.isColorbar = false;
 
     const crosshairToggle = document.getElementById('crosshairToggle');
     if (crosshairToggle) crosshairToggle.checked = true;
-    this.nv.setCrosshairWidth(Config.VIEWER_CONFIG.crosshairWidth ?? 1);
+    if (this.isViewerAvailable()) this.nv.setCrosshairWidth(Config.VIEWER_CONFIG.crosshairWidth ?? 1);
 
     const downloadBtn = document.getElementById('downloadCurrentVolume');
     if (downloadBtn) downloadBtn.disabled = true;
 
-    this.nv.drawScene();
+    if (this.isViewerAvailable()) {
+      this.nv.drawScene();
+      this.setViewerControlsEnabled(true);
+    } else {
+      this.setViewerControlsEnabled(false);
+    }
   }
 
   applyDefaultBaseColormap() {
@@ -1073,7 +1149,7 @@ class SpinalCordToolboxApp {
     if (this.currentResultTab === 'vertebrae') colormap = 'sct-vertebrae';
     if (this.currentResultTab === 'lesion') colormap = 'sct-lesion';
     if (this.currentResultTab === 'segmentation' && this.selectedTask?.id === 'lesion_sci_t2') colormap = 'sct-spinalcord';
-    if (!this.nv.volumes?.length) return;
+    if (!this.isViewerAvailable() || !this.nv.volumes?.length) return;
     this.nv.volumes[0].colormap = colormap;
     this.nv.updateGLVolume();
   }
@@ -1196,21 +1272,21 @@ class SpinalCordToolboxApp {
 
     if (this.isOverlayStage(data.stage)) {
       if (data.stage === 'vertebrae') {
-        this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
+        if (this.isViewerAvailable()) this.viewerController.registerSctColormap(generateNiivueColormap('vertebrae'), 'sct-vertebrae');
       }
       if (data.stage === 'lesion') {
-        this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
+        if (this.isViewerAvailable()) this.viewerController.registerSctColormap(generateNiivueColormap('lesion_sci_t2'), 'sct-lesion');
       }
       if (data.stage === 'spine_step1') {
-        this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
+        if (this.isViewerAvailable()) this.viewerController.registerSctColormap(generateNiivueColormap('totalspineseg'), 'sct-totalspineseg');
       }
       if (data.stage === 'spine_discs') {
-        this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
+        if (this.isViewerAvailable()) this.viewerController.registerSctColormap(generateNiivueColormap('spineDiscs'), 'sct-spine-discs');
       }
       this.setStageVisible(data.stage, this.getDefaultStageVisibility()[data.stage] !== false);
       this.setStageVisible('input', true);
       const overlayControl = document.getElementById('overlayControl');
-      if (overlayControl) overlayControl.classList.remove('hidden');
+      if (overlayControl) overlayControl.classList.toggle('hidden', !this.isViewerAvailable());
       await this.renderViewerVolumes();
     } else if (data.kind === 'metrics') {
       this.renderMetricsResult(data.stage);
@@ -1256,9 +1332,12 @@ class SpinalCordToolboxApp {
 
       const viewBtn = document.createElement('button');
       viewBtn.className = 'view-btn';
-      viewBtn.title = `View ${Config.STAGE_NAMES[stage] || stage}`;
+      viewBtn.title = this.isViewerAvailable()
+        ? `View ${Config.STAGE_NAMES[stage] || stage}`
+        : 'Image preview requires WebGL2';
       viewBtn.innerHTML = viewSvg;
       viewBtn.dataset.stage = stage;
+      viewBtn.disabled = !this.isViewerAvailable();
 
       if (this.isOverlayStage(stage)) {
         viewBtn.classList.toggle('active', this.isStageVisible(stage));
@@ -1526,6 +1605,7 @@ class SpinalCordToolboxApp {
   }
 
   async loadViewerStackIfChanged(stackEntries) {
+    if (!this.isViewerAvailable()) return false;
     if (this.viewerController.isCurrentVolumeStack?.(stackEntries)) {
       return false;
     }
@@ -1534,6 +1614,7 @@ class SpinalCordToolboxApp {
   }
 
   async renderViewerVolumes() {
+    if (!this.isViewerAvailable()) return false;
     this._renderViewerRequested = true;
     this._renderViewerPromise = this._renderViewerPromise.then(async () => {
       if (!this._renderViewerRequested) return;
@@ -1615,6 +1696,7 @@ class SpinalCordToolboxApp {
 
   async toggleInputVisibility(visible) {
     this.setStageVisible('input', visible);
+    if (!this.isViewerAvailable()) return;
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = visible;
     await this.renderViewerVolumes();
@@ -1625,6 +1707,10 @@ class SpinalCordToolboxApp {
   async toggleStageVisibility(stage, visible) {
     this.setStageVisible(stage, visible);
     const opacitySlider = document.getElementById('overlayOpacity');
+    if (!this.isViewerAvailable()) {
+      this.syncResultViewButtons();
+      return;
+    }
     await this.renderViewerVolumes();
     if (opacitySlider) opacitySlider.disabled = this.getVisibleOverlayStages().length === 0;
     this.syncResultViewButtons();
@@ -1640,7 +1726,7 @@ class SpinalCordToolboxApp {
     this.abortUICheckpoint = null;
     if (statusText) statusText.textContent = 'Ready';
 
-    if (this.getVisibleOverlayStages().length > 0) {
+    if (this.isViewerAvailable() && this.getVisibleOverlayStages().length > 0) {
       await this.renderViewerVolumes();
 
       const opacitySlider = document.getElementById('overlayOpacity');
@@ -1677,7 +1763,7 @@ class SpinalCordToolboxApp {
     const container = document.getElementById('stageButtons');
     if (container) container.innerHTML = '';
     this.clearMetricsResult();
-    this.viewerController.clearVolumes();
+    if (this.isViewerAvailable()) this.viewerController.clearVolumes();
     this.resetStageVisibility();
     this._overlaySliderValue = 0.7;
   }
@@ -1707,7 +1793,7 @@ class SpinalCordToolboxApp {
     const opacityDisplay = document.getElementById('overlayOpacityValue');
     if (opacityDisplay) opacityDisplay.textContent = '50%';
 
-    if (this.inputFile) {
+    if (this.inputFile && this.isViewerAvailable()) {
       this.viewerController.loadBaseVolume(this.inputFile, { stage: 'input' });
     }
 

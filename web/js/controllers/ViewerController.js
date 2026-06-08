@@ -20,6 +20,10 @@ export class ViewerController {
     this.currentVolumeStackSignature = null;
   }
 
+  isAvailable() {
+    return !!this.nv;
+  }
+
   getObjectUrl(file) {
     if (!this.objectUrls.has(file)) {
       this.objectUrls.set(file, URL.createObjectURL(file));
@@ -45,6 +49,7 @@ export class ViewerController {
   }
 
   isCurrentVolumeStack(entries) {
+    if (!this.isAvailable()) return false;
     if (!this.currentVolumeStackSignature) return false;
     if (this.nv.volumes.length !== entries.length) return false;
     return this.currentVolumeStackSignature === this.getVolumeStackSignature(entries);
@@ -55,6 +60,7 @@ export class ViewerController {
    * @param {Object} colormapData - { R, G, B, A } arrays from labels.js
    */
   registerSctColormap(colormapData, colormapId = 'sct-spinalcord') {
+    if (!this.isAvailable()) return;
     try {
       this.nv.addColormap(colormapId, colormapData);
       this.sctColormapsRegistered.add(colormapId);
@@ -68,6 +74,7 @@ export class ViewerController {
   }
 
   async loadBaseVolume(file, options = {}) {
+    if (!this.isAvailable()) return;
     try {
       this.updateOutput(`Loading ${file.name}...`);
       const url = this.getObjectUrl(file);
@@ -89,6 +96,7 @@ export class ViewerController {
   }
 
   async loadVolumeStack(entries) {
+    if (!this.isAvailable()) return;
     if (!entries.length) {
       this.clearVolumes();
       return;
@@ -132,6 +140,14 @@ export class ViewerController {
   }
 
   clearVolumes() {
+    if (!this.isAvailable()) {
+      this.currentBaseFile = null;
+      this.currentOverlayFile = null;
+      this.currentOverlayIndex = null;
+      this.volumeStageIndices.clear();
+      this.currentVolumeStackSignature = null;
+      return;
+    }
     this.nv.volumes = [];
     this.currentBaseFile = null;
     this.currentOverlayFile = null;
@@ -143,6 +159,7 @@ export class ViewerController {
   }
 
   clearOverlay() {
+    if (!this.isAvailable()) return;
     const overlayIndex = this.getOverlayIndex();
     if (overlayIndex === null) return;
 
@@ -160,6 +177,7 @@ export class ViewerController {
   }
 
   configureSegmentationVolume(index, colormap) {
+    if (!this.isAvailable()) return;
     const volume = this.nv.volumes[index];
     if (!volume) return;
 
@@ -175,6 +193,7 @@ export class ViewerController {
   }
 
   async loadOverlay(file, colormap = 'red', opacity = 0.5, options = {}) {
+    if (!this.isAvailable()) return;
     try {
       const url = this.getObjectUrl(file);
       await this.nv.addVolumeFromUrl({
@@ -226,6 +245,7 @@ export class ViewerController {
   }
 
   setViewType(type) {
+    if (!this.isAvailable()) return;
     const typeMap = {
       multiplanar: this.nv.sliceTypeMultiplanar,
       axial: this.nv.sliceTypeAxial,
@@ -239,6 +259,7 @@ export class ViewerController {
   }
 
   setBaseOpacity(value) {
+    if (!this.isAvailable()) return;
     if (this.nv.volumes.length > 0) {
       this.nv.setOpacity(0, value);
       this.nv.updateGLVolume();
@@ -246,6 +267,7 @@ export class ViewerController {
   }
 
   setOverlayOpacity(value) {
+    if (!this.isAvailable()) return;
     const overlayIndices = this.getOverlayIndices();
     if (overlayIndices.length) {
       overlayIndices.forEach(index => this.nv.setOpacity(index, value));
@@ -254,6 +276,7 @@ export class ViewerController {
   }
 
   setOverlayColormap(colormap) {
+    if (!this.isAvailable()) return;
     const overlayIndex = this.getOverlayIndex();
     if (overlayIndex !== null) {
       const overlay = this.nv.volumes[overlayIndex];
@@ -266,6 +289,7 @@ export class ViewerController {
   }
 
   getOverlayIndex() {
+    if (!this.isAvailable()) return null;
     if (this.currentOverlayIndex !== null && this.nv.volumes[this.currentOverlayIndex]) {
       return this.currentOverlayIndex;
     }
@@ -273,12 +297,14 @@ export class ViewerController {
   }
 
   getOverlayIndices() {
+    if (!this.isAvailable()) return [];
     return this.nv.volumes
       .map((_, index) => index)
       .filter(index => index > 0);
   }
 
   getVolumeIndexForStage(stage) {
+    if (!this.isAvailable()) return null;
     const index = this.volumeStageIndices.get(stage);
     if (index === undefined || !this.nv.volumes[index]) return null;
     return index;

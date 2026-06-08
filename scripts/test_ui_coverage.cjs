@@ -47,6 +47,7 @@ const UI_COVERAGE = Object.freeze([
   { id: 'resultsSection', behavior: 'shows available result stages', coveredBy: ['batch', 'static-dom'] },
   { id: 'downloadCurrentVolume', behavior: 'downloads selected result/input volume', coveredBy: ['batch', 'static-dom'] },
   { id: 'screenshotViewer', behavior: 'exports viewer screenshot', coveredBy: ['batch', 'static-dom'] },
+  { id: 'viewerUnavailableMessage', behavior: 'shows non-WebGL2 viewer fallback state', coveredBy: ['static-dom'] },
   { id: 'clearResults', behavior: 'clears pipeline results', coveredBy: ['static-dom'] },
   { id: 'overlayOpacity', behavior: 'updates segmentation overlay opacity', coveredBy: ['viewer', 'batch', 'static-dom'] },
   { id: 'inputVisibilityToggle', behavior: 'toggles input volume visibility', coveredBy: ['viewer', 'static-dom'] },
@@ -103,6 +104,10 @@ assert.deepEqual(missingCoverage, [], `interactive ids missing UI coverage entri
 
 assert.ok(appJs.includes("querySelectorAll('.view-tab[data-view]')"), 'view tab controls are wired');
 assert.ok(indexHtml.includes('class="view-tab'), 'view tab controls exist');
+assert.ok(appJs.includes('browserSupportsWebGL2()'), 'app checks WebGL2 support before NiiVue attach');
+assert.ok(appJs.includes("this.disableViewer('WebGL2 is disabled or unavailable in this browser.')"), 'app disables viewer instead of aborting startup when WebGL2 is missing');
+assert.ok(appJs.includes('setViewerControlsEnabled(false)'), 'app disables viewer-only controls when the viewer is unavailable');
+assert.ok(appJs.includes('if (!this.isViewerAvailable()) return false;'), 'viewer render path is a no-op when WebGL2 is unavailable');
 assert.ok(indexHtml.includes('<section class="start-page" id="startPage"'), 'start page overlay exists');
 assert.ok(appJs.includes("startPage.classList.add('hidden')"), 'start page enters app by hiding overlay');
 assert.ok(appJs.includes("document.getElementById('fileInput')?.focus()"), 'start page handoff focuses the input workflow');
