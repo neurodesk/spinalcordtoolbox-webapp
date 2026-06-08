@@ -230,7 +230,9 @@ export class FallbackNiftiPreview {
     if (!this.message) return;
     const reasonText = reason ? ` NiiVue: ${reason}` : '';
     this.message.hidden = false;
-    this.message.textContent = `2D preview only. ${stageName}: axial slice ${preview.sliceIndex + 1}/${preview.depth}.${reasonText}`;
+    this.message.textContent =
+      `2D preview only. ${stageName}: axial slice ${preview.sliceIndex + 1}/${preview.depth}.`
+      + ` Enable hardware acceleration (chrome://gpu) and reload for the 3D viewer.${reasonText}`;
     this.message.title = reason || '';
   }
 

@@ -18,7 +18,15 @@ import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTa
 import { computeAutoWindow } from './modules/ui/percentile.js';
 import './modules/sct-processing.js';
 
-class SpinalCordToolboxApp {
+export class SpinalCordToolboxApp {
+  // Shown in the viewer panel when WebGL2/NiiVue cannot initialize. Names the
+  // cause (WebGL2) and the remedy (hardware acceleration) so a user with a
+  // fixable browser config is not left thinking the app is simply broken.
+  static VIEWER_UNAVAILABLE_GUIDANCE =
+    'Image preview unavailable: WebGL2 could not initialize. You can still load images, run analysis, and download results. '
+    + 'To restore the interactive 3D viewer, enable hardware acceleration in your browser '
+    + '(Chrome: Settings › System; details at chrome://gpu), then reload.';
+
   constructor() {
     // NiiVue
     this.nv = new niivue.Niivue({
@@ -128,6 +136,13 @@ class SpinalCordToolboxApp {
   async setupViewer() {
     try {
       await this.nv.attachTo('gl1');
+      // niivue 0.68.2 attachTo() throws on WebGL2 failure, so the catch below
+      // normally engages the 2D fallback. Belt-and-braces for a future niivue
+      // that logs-and-returns instead of throwing: a missing GL context means
+      // the canvas is dead even though the promise resolved.
+      if (!this.nv.gl) {
+        throw new Error('WebGL2 context unavailable after attach.');
+      }
       this.nv.setMultiplanarPadPixels(5);
       this.nv.setSliceType(this.nv.sliceTypeMultiplanar);
       this.nv.setInterpolation(true);
@@ -167,7 +182,7 @@ class SpinalCordToolboxApp {
     if (message) {
       message.hidden = !reason;
       if (reason) {
-        message.textContent = 'Image preview unavailable. The viewer could not initialize in this browser.';
+        message.textContent = SpinalCordToolboxApp.VIEWER_UNAVAILABLE_GUIDANCE;
         message.title = reason;
       } else {
         message.title = '';

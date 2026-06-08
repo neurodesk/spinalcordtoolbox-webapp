@@ -108,7 +108,9 @@ assert.deepEqual(missingCoverage, [], `interactive ids missing UI coverage entri
 assert.ok(appJs.includes("querySelectorAll('.view-tab[data-view]')"), 'view tab controls are wired');
 assert.ok(indexHtml.includes('class="view-tab'), 'view tab controls exist');
 assert.ok(appJs.includes("await this.nv.attachTo('gl1')"), 'app attempts NiiVue attachment directly');
+assert.ok(appJs.includes('if (!this.nv.gl)'), 'app asserts a GL context exists after attach (guards a future niivue that logs-and-returns)');
 assert.ok(appJs.includes("this.disableViewer(error?.message || 'Viewer initialization failed.')"), 'app disables viewer instead of aborting startup when NiiVue cannot initialize');
+assert.ok(/VIEWER_UNAVAILABLE_GUIDANCE[\s\S]*WebGL2[\s\S]*hardware acceleration/i.test(appJs), 'viewer-unavailable message names the WebGL2 cause and the hardware-acceleration remedy');
 assert.ok(indexHtml.includes('<script src="nifti-js/index.js"></script>'), 'NIfTI parser is loaded for the non-WebGL fallback preview');
 assert.ok(appJs.includes('FallbackNiftiPreview'), 'app wires the non-WebGL NIfTI preview fallback');
 assert.ok(appJs.includes('this.renderFallbackPreview()'), 'viewer render path falls back to a 2D NIfTI preview');
