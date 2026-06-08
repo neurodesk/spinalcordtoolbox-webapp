@@ -11,6 +11,7 @@ import { InferenceExecutor } from './controllers/InferenceExecutor.js';
 import { ConsoleOutput } from './modules/ui/ConsoleOutput.js';
 import { ProgressManager } from './modules/ui/ProgressManager.js';
 import { ModalManager } from './modules/ui/ModalManager.js';
+import { FallbackNiftiPreview } from './modules/fallback-nifti-preview.js';
 import * as Config from './app/config.js';
 import { generateNiivueColormap, getLabelName } from './app/labels.js';
 import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, getTaskModelUrl, isTaskRunnable } from './app/sct-tasks.js';
@@ -53,6 +54,11 @@ class SpinalCordToolboxApp {
     this.selectedTask = getDefaultTask();
     this.viewerAvailable = false;
     this.viewerUnavailableReason = '';
+    this.fallbackPreview = new FallbackNiftiPreview({
+      canvasId: 'fallbackCanvas2d',
+      messageId: 'viewerUnavailableMessage',
+      updateOutput: (msg) => this.updateOutput(msg)
+    });
 
     this.init();
   }
@@ -120,11 +126,6 @@ class SpinalCordToolboxApp {
   }
 
   async setupViewer() {
-    if (!this.browserSupportsWebGL2()) {
-      this.disableViewer('WebGL2 is disabled or unavailable in this browser.');
-      return false;
-    }
-
     try {
       await this.nv.attachTo('gl1');
       this.nv.setMultiplanarPadPixels(5);
@@ -141,23 +142,19 @@ class SpinalCordToolboxApp {
     }
   }
 
-  browserSupportsWebGL2() {
-    try {
-      const canvas = document.createElement('canvas');
-      return !!canvas.getContext('webgl2');
-    } catch (error) {
-      return false;
-    }
-  }
-
   isViewerAvailable() {
     return this.viewerAvailable && !!this.nv && this.viewerController?.isAvailable?.();
+  }
+
+  isImagePreviewAvailable() {
+    return this.isViewerAvailable() || this.fallbackPreview?.isSupported?.();
   }
 
   disableViewer(reason) {
     this.viewerAvailable = false;
     this.viewerUnavailableReason = reason;
     this.viewerController.nv = null;
+    this.fallbackPreview?.setUnavailable(reason);
     this.setViewerUnavailableMessage(reason);
     this.setViewerControlsEnabled(false);
     this.updateViewerInfo({ string: 'Image preview unavailable' });
@@ -170,7 +167,10 @@ class SpinalCordToolboxApp {
     if (message) {
       message.hidden = !reason;
       if (reason) {
-        message.textContent = 'Image preview unavailable. WebGL2 is disabled or unavailable in this browser.';
+        message.textContent = 'Image preview unavailable. The viewer could not initialize in this browser.';
+        message.title = reason;
+      } else {
+        message.title = '';
       }
     }
   }
@@ -333,6 +333,9 @@ class SpinalCordToolboxApp {
     const clearResults = document.getElementById('clearResults');
     if (clearResults) clearResults.addEventListener('click', () => this.clearResults());
 
+    window.addEventListener('resize', () => {
+      if (!this.isViewerAvailable()) this.fallbackPreview?.redraw?.();
+    });
   }
 
   setupShellEventListeners() {
@@ -373,6 +376,7 @@ class SpinalCordToolboxApp {
         } catch (err) {
           this.updateOutput(`Viewer redraw deferred: ${err.message}`);
         }
+        if (!this.isViewerAvailable()) this.fallbackPreview?.redraw?.();
       });
     });
   }
@@ -709,6 +713,8 @@ class SpinalCordToolboxApp {
       this.applyDefaultBaseColormap();
       this.syncWindowControls();
       this.applyAutoContrast();
+    } else {
+      await this.renderFallbackPreview(file, { stage: 'input' });
     }
 
     // Send data to worker for loading
@@ -736,6 +742,7 @@ class SpinalCordToolboxApp {
     this.resetStatusDisplay();
     this.resetProcessingInputs();
     this.resetViewerControls();
+    this.fallbackPreview?.clear();
 
     await this.resetAllSteps();
     this.updateViewerInfo(null);
@@ -1285,6 +1292,9 @@ class SpinalCordToolboxApp {
       }
       this.setStageVisible(data.stage, this.getDefaultStageVisibility()[data.stage] !== false);
       this.setStageVisible('input', true);
+      if (!this.isViewerAvailable() && this.fallbackPreview?.isSupported?.()) {
+        this.currentResultTab = data.stage;
+      }
       const overlayControl = document.getElementById('overlayControl');
       if (overlayControl) overlayControl.classList.toggle('hidden', !this.isViewerAvailable());
       await this.renderViewerVolumes();
@@ -1332,24 +1342,30 @@ class SpinalCordToolboxApp {
 
       const viewBtn = document.createElement('button');
       viewBtn.className = 'view-btn';
-      viewBtn.title = this.isViewerAvailable()
+      viewBtn.title = this.isImagePreviewAvailable()
         ? `View ${Config.STAGE_NAMES[stage] || stage}`
-        : 'Image preview requires WebGL2';
+        : 'Image preview unavailable';
       viewBtn.innerHTML = viewSvg;
       viewBtn.dataset.stage = stage;
-      viewBtn.disabled = !this.isViewerAvailable();
+      viewBtn.disabled = !this.isImagePreviewAvailable();
 
       if (this.isOverlayStage(stage)) {
-        viewBtn.classList.toggle('active', this.isStageVisible(stage));
+        viewBtn.classList.toggle('active', this.isViewerAvailable()
+          ? this.isStageVisible(stage)
+          : this.currentResultTab === stage);
         viewBtn.addEventListener('click', () => {
-          void this.toggleStageVisibility(stage, !this.isStageVisible(stage));
+          if (this.isViewerAvailable()) {
+            void this.toggleStageVisibility(stage, !this.isStageVisible(stage));
+          } else {
+            void this.viewStage(stage);
+          }
         });
       } else {
         // Initialize active state based on what's currently displayed
         viewBtn.classList.toggle('active', this.currentResultTab === stage && this.isStageVisible('input'));
         // Base volume stages: toggle load/unload as base volume
         viewBtn.addEventListener('click', () => {
-          if (this.currentResultTab === stage && this.isStageVisible('input')) {
+          if (this.isViewerAvailable() && this.currentResultTab === stage && this.isStageVisible('input')) {
             // Already showing this stage — hide it
             void this.toggleInputVisibility(false);
             viewBtn.classList.remove('active');
@@ -1558,6 +1574,13 @@ class SpinalCordToolboxApp {
     return result?.file || this.inputFile;
   }
 
+  getFallbackPreviewFile() {
+    if (this.currentResultTab === 'input') return this.inputFile;
+    const result = this.inferenceExecutor.getResult(this.currentResultTab);
+    if (result?.kind === 'metrics') return this.inputFile;
+    return result?.file || this.inputFile;
+  }
+
   isOverlayStage(stage) {
     return stage === 'segmentation' || stage === 'lesion' || stage === 'vertebrae' || stage === 'spine_step1' || stage === 'spine_discs';
   }
@@ -1614,7 +1637,7 @@ class SpinalCordToolboxApp {
   }
 
   async renderViewerVolumes() {
-    if (!this.isViewerAvailable()) return false;
+    if (!this.isViewerAvailable()) return this.renderFallbackPreview();
     this._renderViewerRequested = true;
     this._renderViewerPromise = this._renderViewerPromise.then(async () => {
       if (!this._renderViewerRequested) return;
@@ -1622,6 +1645,19 @@ class SpinalCordToolboxApp {
       await this._renderViewerVolumesNow();
     });
     return this._renderViewerPromise;
+  }
+
+  async renderFallbackPreview(file = this.getFallbackPreviewFile(), { stage = this.currentResultTab || 'input' } = {}) {
+    if (!this.fallbackPreview?.isSupported?.() || !file) return false;
+    const stageName = Config.STAGE_NAMES[stage] || (stage === 'input' ? 'Input' : stage);
+    const rendered = await this.fallbackPreview.renderFile(file, {
+      stageName,
+      reason: this.viewerUnavailableReason
+    });
+    if (rendered) {
+      this.updateViewerInfo({ string: `${stageName}: 2D preview` });
+    }
+    return rendered;
   }
 
   async _renderViewerVolumesNow() {
@@ -1686,7 +1722,7 @@ class SpinalCordToolboxApp {
 
     container.querySelectorAll('.view-btn').forEach(btn => {
       const stage = btn.dataset.stage;
-      if (this.isOverlayStage(stage)) {
+      if (this.isViewerAvailable() && this.isOverlayStage(stage)) {
         btn.classList.toggle('active', this.isStageVisible(stage));
       } else {
         btn.classList.toggle('active', stage === this.currentResultTab && this.isStageVisible('input'));

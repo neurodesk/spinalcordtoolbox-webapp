@@ -7,12 +7,14 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
+const stylesCss = fs.readFileSync(path.join(ROOT, 'web/css/styles.css'), 'utf8');
 const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
 const controllerSources = [
   'web/js/controllers/FileIOController.js',
   'web/js/controllers/InferenceExecutor.js',
   'web/js/controllers/ViewerController.js',
   'web/js/controllers/DicomController.js',
+  'web/js/modules/fallback-nifti-preview.js',
   'web/js/modules/ui/ConsoleOutput.js',
   'web/js/modules/ui/ModalManager.js',
   'web/js/modules/ui/ProgressManager.js'
@@ -48,6 +50,7 @@ const UI_COVERAGE = Object.freeze([
   { id: 'downloadCurrentVolume', behavior: 'downloads selected result/input volume', coveredBy: ['batch', 'static-dom'] },
   { id: 'screenshotViewer', behavior: 'exports viewer screenshot', coveredBy: ['batch', 'static-dom'] },
   { id: 'viewerUnavailableMessage', behavior: 'shows non-WebGL2 viewer fallback state', coveredBy: ['static-dom'] },
+  { id: 'fallbackCanvas2d', behavior: 'renders NIfTI slices when NiiVue cannot initialize', coveredBy: ['static-dom'] },
   { id: 'clearResults', behavior: 'clears pipeline results', coveredBy: ['static-dom'] },
   { id: 'overlayOpacity', behavior: 'updates segmentation overlay opacity', coveredBy: ['viewer', 'batch', 'static-dom'] },
   { id: 'inputVisibilityToggle', behavior: 'toggles input volume visibility', coveredBy: ['viewer', 'static-dom'] },
@@ -104,8 +107,12 @@ assert.deepEqual(missingCoverage, [], `interactive ids missing UI coverage entri
 
 assert.ok(appJs.includes("querySelectorAll('.view-tab[data-view]')"), 'view tab controls are wired');
 assert.ok(indexHtml.includes('class="view-tab'), 'view tab controls exist');
-assert.ok(appJs.includes('browserSupportsWebGL2()'), 'app checks WebGL2 support before NiiVue attach');
-assert.ok(appJs.includes("this.disableViewer('WebGL2 is disabled or unavailable in this browser.')"), 'app disables viewer instead of aborting startup when WebGL2 is missing');
+assert.ok(appJs.includes("await this.nv.attachTo('gl1')"), 'app attempts NiiVue attachment directly');
+assert.ok(appJs.includes("this.disableViewer(error?.message || 'Viewer initialization failed.')"), 'app disables viewer instead of aborting startup when NiiVue cannot initialize');
+assert.ok(indexHtml.includes('<script src="nifti-js/index.js"></script>'), 'NIfTI parser is loaded for the non-WebGL fallback preview');
+assert.ok(appJs.includes('FallbackNiftiPreview'), 'app wires the non-WebGL NIfTI preview fallback');
+assert.ok(appJs.includes('this.renderFallbackPreview()'), 'viewer render path falls back to a 2D NIfTI preview');
+assert.ok(stylesCss.includes('.viewer-unavailable-message[hidden] { display: none !important; }'), 'hidden viewer fallback message does not paint over a working canvas');
 assert.ok(appJs.includes('setViewerControlsEnabled(false)'), 'app disables viewer-only controls when the viewer is unavailable');
 assert.ok(appJs.includes('if (!this.isViewerAvailable()) return false;'), 'viewer render path is a no-op when WebGL2 is unavailable');
 assert.ok(indexHtml.includes('<section class="start-page" id="startPage"'), 'start page overlay exists');

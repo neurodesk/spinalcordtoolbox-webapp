@@ -43,7 +43,7 @@ stop_existing_server() {
   for pid in $pids; do
     cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1)"
     command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-    if [[ "$cwd" == "$SCRIPT_DIR" && "$command" == *"http.server.HTTPServer"* ]]; then
+    if [[ "$cwd" == "$SCRIPT_DIR" && "$command" == *"http.server."*"HTTPServer"* ]]; then
       stop_pid "$pid"
     fi
   done
@@ -75,7 +75,7 @@ class CORSHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Expires', '0')
         super().end_headers()
 
-http.server.HTTPServer(('', $PORT), CORSHandler).serve_forever()
+http.server.ThreadingHTTPServer(('', $PORT), CORSHandler).serve_forever()
 " &
 SERVER_PID="$!"
 echo "$SERVER_PID" > "$PID_FILE"

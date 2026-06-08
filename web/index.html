@@ -342,8 +342,9 @@
     <!-- NiiVue canvas -->
     <div class="viewer-canvas-wrapper">
       <canvas id="gl1"></canvas>
+      <canvas id="fallbackCanvas2d" class="fallback-canvas"></canvas>
       <div class="viewer-unavailable-message" id="viewerUnavailableMessage" hidden>
-        Image preview unavailable. WebGL2 is disabled or unavailable in this browser.
+        Image preview unavailable. The viewer could not initialize in this browser.
       </div>
     </div>
 
@@ -507,6 +508,9 @@ function toggleSection(section) {
 
 <!-- NiiVue -->
 <script src="https://unpkg.com/@niivue/niivue@0.68.2/dist/niivue.umd.js"></script>
+
+<!-- NIfTI parsing for non-WebGL preview fallback -->
+<script src="nifti-js/index.js"></script>
 
 <!-- Main app -->
 <script type="module" src="js/spinalcordtoolbox-app.js"></script>

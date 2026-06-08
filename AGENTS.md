@@ -9,6 +9,7 @@
 
 - **Start dev server**: `cd web && bash run.sh` (serves on http://localhost:8080)
 - `web/run.sh` stops an existing SCT dev server on the requested port before starting a replacement and serves local development files with no-store cache headers; use an alternate port argument when another non-SCT process owns `8080`
+- `web/run.sh` uses `ThreadingHTTPServer`; keep it threaded so one idle browser/devtools connection cannot block the whole local server. `npm run test:server` holds an idle TCP connection open and verifies a second request still succeeds.
 - **Setup**: `cd web && bash setup.sh` (downloads ONNX Runtime WASM files)
 
 ## Linting
@@ -39,7 +40,9 @@ Common issues it catches:
 
 - The inference worker uses `importScripts()` (no ES modules)
 - `ViewerController` owns NiiVue overlay lifecycle; keep segmentation as one managed overlay volume, and use segmentation-as-base mode when the input volume is hidden because NiiVue volume 0 is not a reliable hide target.
-- The app must continue to initialize when Chrome cannot create a WebGL2 context. Keep NiiVue/viewer controls disabled through `disableViewer()`/`isViewerAvailable()` in that mode, but leave file loading, inference, result generation, metrics, and result downloads usable. `npm run test:ui` and `npm run test:compat` cover this startup fallback.
+- The app must continue to initialize when NiiVue cannot create a viewer context. Let `nv.attachTo('gl1')` be the source of truth instead of adding a separate off-DOM WebGL2 preflight, keep NiiVue/viewer controls disabled through `disableViewer()`/`isViewerAvailable()` in fallback mode, and leave file loading, inference, result generation, metrics, and result downloads usable. `npm run test:ui` and `npm run test:compat` cover this startup fallback.
+- When NiiVue is unavailable, `FallbackNiftiPreview` renders a 2D axial NIfTI slice on `fallbackCanvas2d` using the vendored `nifti-js/index.js` parser. Keep result eye buttons usable in this mode by routing them through `viewStage()`, but do not emulate NiiVue overlay composition in the fallback. `npm run test:ui:modules` covers the fallback decoder/renderer.
+- Keep `.viewer-unavailable-message[hidden]` explicitly hidden in CSS. The fallback message is absolutely positioned over the canvas, and the base `.viewer-unavailable-message` display rule otherwise overrides the hidden attribute and paints the error text over a working NiiVue viewer. `npm run test:ui` covers this.
 - `web/coi-serviceworker.js` must always resolve fetch events with a `Response`, including third-party analytics/CORS failures, and must reconstruct 204/205/304 responses with a null body. `npm run test:compat` covers the Chrome Response-constructor regressions.
 - Route input/segmentation visibility changes through `renderViewerVolumes()` so the Results eye buttons and toolbar input toggle rebuild a consistent NiiVue volume stack.
 - Config version is bumped by the manual GitHub Actions release workflow via `sed`; it increments the patch version — do not bump manually
@@ -95,11 +98,11 @@ Common issues it catches:
 | `npm run test:fixtures:download` | Downloads `test_data/batch_processing.sh` plus fixture `input.nii.gz` and `batch_output.nii.gz` files from Hugging Face |
 | `npm run test:fixtures:generate` | Regenerates `browser_output.nii.gz` by running real ONNX inference (Node-only, no browser) |
 | `npm run test:controllers` | `FileIOController`, `DicomController`, `InferenceExecutor` against fake DOM/Worker |
-| `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager` against fake DOM |
+| `npm run test:ui:modules` | `ProgressManager`, `ConsoleOutput`, `ModalManager`, and fallback NIfTI preview against fake DOM |
 | `npm run test:ci-summary` | Full-test workflow log summarizer used to publish failed npm script/test details in GitHub Actions summaries |
 | `npm run test:inference:e2e` | Inference worker driven via VM shim against 3 fixtures with real ONNX Runtime (slow) |
 | `npm run test:worker:protocol` | Worker postMessage protocol invariants (progress order, monotonicity, terminal-message uniqueness, error path) — slow |
-| `npm run test:server` | Dev server graceful restart |
+| `npm run test:server` | Dev server graceful restart and idle-connection concurrency |
 | `npm run test:fast` | Lint + manifest consistency + UI + compatibility + viewer + processing + vertebrae + TotalSpineSeg + lesion-analysis + inference post-processing + batch + fixtures + controllers + UI modules (no worker e2e/protocol tests) |
 | `npm test` | Full suite: `test:fast` + `test:inference:e2e` + `test:worker:protocol` + `test:server` |
 
