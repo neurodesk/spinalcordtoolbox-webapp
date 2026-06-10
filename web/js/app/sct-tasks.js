@@ -133,6 +133,7 @@ export const SCT_TASKS = [
         sizeBytes: 123468139,
         patchSize: [160, 224, 64],
         preprocessing: {
+          modelOrientation: 'RPI',
           modelAxisOrder: 'zyx',
           targetSpacing: [0.8958333, 0.7, 1.0]
         },

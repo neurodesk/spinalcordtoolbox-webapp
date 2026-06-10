@@ -49,6 +49,7 @@ const spinalcord = SCT_TASKS.find(task => task.id === 'spinalcord');
 assert.ok(spinalcord, 'spinalcord task is defined');
 const spinalcordAsset = getPrimaryModelAsset(spinalcord);
 assert.ok(spinalcordAsset, 'spinalcord task has a primary model asset');
+assert.equal(spinalcordAsset?.preprocessing?.modelOrientation, 'RPI', 'spinalcord must match SCT dataset.json image_orientation=RPI');
 assert.equal(spinalcordAsset?.preprocessing?.modelAxisOrder, 'zyx', 'spinalcord must feed the nnU-Net plan in zyx tensor order');
 assert.deepEqual(spinalcordAsset?.preprocessing?.targetSpacing, [0.8958333, 0.7, 1.0], 'spinalcord targetSpacing is stored in browser RAS/XYZ order');
 assert.equal(spinalcordAsset?.inferenceDefaults?.overlap, 0.5, 'spinalcord overlap must match SCT tile_step_size=0.5');
