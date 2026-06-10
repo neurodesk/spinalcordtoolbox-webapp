@@ -27,7 +27,9 @@ export const INFERENCE_DEFAULTS = {
   cropForegroundMargin: 20,
   overlap: 0,
   probabilityThreshold: 0.5,
-  minComponentSize: 10
+  minComponentSize: 10,
+  keepLargestComponent: false,
+  testTimeAugmentation: false
 };
 
 export const VIEWER_CONFIG = {

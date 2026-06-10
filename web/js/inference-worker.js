@@ -1034,6 +1034,7 @@ async function stepInference(params) {
     overlap = 0,
     threshold = 0.1,
     minComponentSize = 10,
+    keepLargestComponent = false,
     taskId = 'spinalcord',
     modelAssetId = 'sct-spinalcord',
     modelName = 'sct-spinalcord.onnx',
@@ -1080,7 +1081,12 @@ async function stepInference(params) {
     : null;
   if (targetSpacing) {
     const resampled = resampleVolume(modelInputData, modelInputDims, workerState.rasSpacing, targetSpacing);
-    postLog(`Resampled for ${taskId}: ${modelInputDims.join('x')} -> ${resampled.dims.join('x')} at ${targetSpacing.map(v => v.toFixed(3)).join('x')}mm`);
+    const spacingText = targetSpacing.map(v => v.toFixed(3)).join('x');
+    const modelOrderSpacing = preprocessing.modelAxisOrder === 'zyx'
+      ? [targetSpacing[2], targetSpacing[1], targetSpacing[0]]
+      : targetSpacing;
+    const modelOrderText = modelOrderSpacing.map(v => v.toFixed(3)).join('x');
+    postLog(`Resampled for ${taskId}: ${modelInputDims.join('x')} -> ${resampled.dims.join('x')} at ${spacingText} mm RAS/XYZ (model order ${modelOrderText} mm)`);
     modelInputData = resampled.data;
     modelInputDims = resampled.dims;
     const previousOutputToRas = modelOutputToRas;
@@ -1362,7 +1368,7 @@ async function stepInference(params) {
       },
       runPatch,
       {
-        overlap, threshold, minComponentSize, testTimeAugmentation,
+        overlap, threshold, minComponentSize, keepLargestComponent, testTimeAugmentation,
         onLog: (msg) => postLog(msg),
         onProgress: progressHandler,
         onPatchStats: (pi, s) => {
@@ -1528,6 +1534,7 @@ self.onmessage = async (e) => {
           provenance: settings.provenance,
           threshold: settings.threshold ?? settings.probabilityThreshold,
           minComponentSize: settings.minComponentSize,
+          keepLargestComponent: settings.keepLargestComponent,
           modelName: settings.modelName,
           modelUrl: settings.modelUrl,
           patchSize: settings.patchSize,

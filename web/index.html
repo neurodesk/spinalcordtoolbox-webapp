@@ -79,7 +79,7 @@
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
           </div>
           <h4>2. Choose an SCT task</h4>
-          <p>Select a supported segmentation task and adjust overlap, threshold, or cleanup settings if needed.</p>
+          <p>Select a supported segmentation task and adjust threshold or cleanup settings if needed.</p>
         </article>
         <article class="start-step">
           <div class="start-step-icon">
@@ -166,21 +166,12 @@
             <p class="step-description" id="taskDetails">SCT task metadata loading...</p>
           </div>
           <div class="param-group">
-            <label class="param-label" for="overlapSelect">Sliding Window Overlap <span class="info-icon">i<span class="info-tooltip">Higher overlap improves segmentation quality but takes longer. 50% is fast, 90% produces the highest quality.</span></span></label>
-            <select id="overlapSelect">
-              <option value="0" selected>0% (No Overlap)</option>
-              <option value="0.5">50% (Fast)</option>
-              <option value="0.75">75% (Balanced)</option>
-              <option value="0.9">90% (High Quality)</option>
-            </select>
-          </div>
-          <div class="param-group">
             <label class="param-label" for="thresholdInput">Probability Threshold <span class="info-icon">i<span class="info-tooltip">Minimum probability to classify a voxel as the selected SCT output label. Lower values increase sensitivity but may include false positives.</span></span></label>
             <input type="number" id="thresholdInput" value="0.1" min="0.01" max="0.5" step="0.01">
           </div>
           <div class="param-group">
             <label class="param-label" for="minSizeInput">Min Component Size <span class="info-icon">i<span class="info-tooltip">Connected components with fewer voxels than this are removed as noise.</span></span></label>
-            <input type="number" id="minSizeInput" value="10" min="1" max="1000" step="1">
+            <input type="number" id="minSizeInput" value="10" min="0" max="1000" step="1">
           </div>
           <div class="param-group">
             <label class="param-label" style="cursor: pointer;">

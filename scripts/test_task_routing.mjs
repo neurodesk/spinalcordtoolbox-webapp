@@ -45,6 +45,17 @@ assert.ok(segmentationDropdownTasks.includes(lesionSci), 'lesion_sci_t2 must app
 assert.deepEqual(lesionSci.outputStages?.map(stage => stage.id), ['segmentation', 'lesion', 'lesion_metrics'], 'lesion_sci_t2 must declare spinal-cord, lesion, and metrics stages');
 assert.equal(getPrimaryModelAsset(lesionSci)?.output?.activation, 'sigmoid-regions', 'lesion_sci_t2 must use SCIsegV2 region-channel output metadata');
 
+const spinalcord = SCT_TASKS.find(task => task.id === 'spinalcord');
+assert.ok(spinalcord, 'spinalcord task is defined');
+const spinalcordAsset = getPrimaryModelAsset(spinalcord);
+assert.ok(spinalcordAsset, 'spinalcord task has a primary model asset');
+assert.equal(spinalcordAsset?.preprocessing?.modelAxisOrder, 'zyx', 'spinalcord must feed the nnU-Net plan in zyx tensor order');
+assert.deepEqual(spinalcordAsset?.preprocessing?.targetSpacing, [0.8958333, 0.7, 1.0], 'spinalcord targetSpacing is stored in browser RAS/XYZ order');
+assert.equal(spinalcordAsset?.inferenceDefaults?.overlap, 0.5, 'spinalcord overlap must match SCT tile_step_size=0.5');
+assert.equal(spinalcordAsset?.inferenceDefaults?.testTimeAugmentation, false, 'spinalcord TTA must stay disabled by SCT default');
+assert.equal(spinalcordAsset?.inferenceDefaults?.keepLargestComponent, true, 'spinalcord must keep the largest component like SCT');
+assert.equal(spinalcordAsset?.inferenceDefaults?.minComponentSize, 0, 'spinalcord must not add a separate browser-only min-size cleanup');
+
 const spine = SCT_TASKS.find(task => task.id === 'spine');
 assert.ok(spine, 'spine task is defined');
 assert.equal(spine.supportStatus, 'supported', 'spine must be runnable once the TotalSpineSeg ONNX asset is present');
@@ -65,6 +76,7 @@ assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_step1')?.visi
 assert.equal(spine.outputStages?.find(stage => stage.id === 'spine_discs')?.visibleByDefault, true, 'TotalSpineSeg disc labels must be visible by default');
 
 const indexHtml = fs.readFileSync(path.join(ROOT, 'web/index.html'), 'utf8');
+assert.doesNotMatch(indexHtml, /id="overlapSelect"/, 'sliding-window overlap is an SCT model default, not a user-facing control');
 const processingOptions = [...indexHtml.matchAll(/<select id="processingOperationSelect">([\s\S]*?)<\/select>/g)][0]?.[1] || '';
 assert.match(processingOptions, /value="vertebrae"/, 'processingOperationSelect must offer vertebrae');
 const exposedProcessingOptionValues = [...processingOptions.matchAll(/<option\s+value="([^"]+)"/g)].map(match => match[1]);
@@ -80,6 +92,8 @@ assert.doesNotMatch(
 const appJs = fs.readFileSync(path.join(ROOT, 'web/js/spinalcordtoolbox-app.js'), 'utf8');
 assert.match(appJs, /operation === 'vertebrae'[\s\S]*?hasResult\('segmentation'\)[\s\S]*?runVertebralLabeling/, 'runProcessingOperation must route vertebrae to runVertebralLabeling, gated on segmentation');
 assert.match(appJs, /getTaskModelUrl\(selectedTask\)[\s\S]*?modelUrl:\s*modelUrl\s*\?/, 'runInference must pass the resolved per-asset model URL into the worker');
+assert.match(appJs, /const overlap\s*=\s*assetDefaults\.overlap\s*\?\?\s*Config\.INFERENCE_DEFAULTS\.overlap/, 'runSegmentation must read overlap from task metadata instead of a public selector');
+assert.match(appJs, /keepLargestComponent:\s*!!\(assetDefaults\.keepLargestComponent\s*\?\?\s*Config\.INFERENCE_DEFAULTS\.keepLargestComponent\)/, 'runSegmentation must pass SCT largest-component cleanup to the worker');
 
 const workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
 assert.match(workerJs, /resolvedModelUrl\s*=\s*modelUrl\s*\|\|\s*`\$\{modelBaseUrl\}\/\$\{modelName\}`/, 'worker must prefer per-asset modelUrl before falling back to MODEL_BASE_URL + filename');

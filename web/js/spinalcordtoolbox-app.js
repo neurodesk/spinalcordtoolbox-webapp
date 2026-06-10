@@ -434,6 +434,11 @@ export class SpinalCordToolboxApp {
     if (minSizeInput) {
       minSizeInput.value = String(assetDefaults.minComponentSize ?? Config.INFERENCE_DEFAULTS.minComponentSize);
     }
+
+    const ttaToggle = document.getElementById('ttaToggle');
+    if (ttaToggle) {
+      ttaToggle.checked = !!(assetDefaults.testTimeAugmentation ?? Config.INFERENCE_DEFAULTS.testTimeAugmentation);
+    }
   }
 
   updateTaskDetails() {
@@ -887,21 +892,31 @@ export class SpinalCordToolboxApp {
   async runSegmentation() {
     if (this.inferenceExecutor.isRunning()) return;
 
-    const overlapSelect = document.getElementById('overlapSelect');
-    const overlap = overlapSelect ? parseFloat(overlapSelect.value) : Config.INFERENCE_DEFAULTS.overlap;
-
-    const thresholdInput = document.getElementById('thresholdInput');
-    const threshold = thresholdInput ? parseFloat(thresholdInput.value) : Config.INFERENCE_DEFAULTS.probabilityThreshold;
-
-    const minSizeInput = document.getElementById('minSizeInput');
-    const minComponentSize = minSizeInput ? parseInt(minSizeInput.value, 10) : Config.INFERENCE_DEFAULTS.minComponentSize;
-
     const modelSelect = document.getElementById('modelSelect');
     const selectedTaskId = modelSelect ? modelSelect.value : DEFAULT_TASK_ID;
     const selectedTask = getTaskById(selectedTaskId);
     const selectedAsset = getPrimaryModelAsset(selectedTask);
     const assetDefaults = selectedAsset?.inferenceDefaults || {};
     const effectivePatchSize = selectedAsset?.patchSize || selectedTask.patchSize || Config.MODEL.patchSize;
+    const numericSetting = (elementId, fallback, parser = parseFloat) => {
+      const element = document.getElementById(elementId);
+      if (!element) return fallback;
+      const value = parser(element.value);
+      return Number.isFinite(value) ? value : fallback;
+    };
+    const overlap = assetDefaults.overlap ?? Config.INFERENCE_DEFAULTS.overlap;
+    const threshold = numericSetting(
+      'thresholdInput',
+      assetDefaults.probabilityThreshold ?? Config.INFERENCE_DEFAULTS.probabilityThreshold
+    );
+    const minComponentSize = numericSetting(
+      'minSizeInput',
+      assetDefaults.minComponentSize ?? Config.INFERENCE_DEFAULTS.minComponentSize,
+      (value) => parseInt(value, 10)
+    );
+    const ttaDefault = !!(assetDefaults.testTimeAugmentation ?? Config.INFERENCE_DEFAULTS.testTimeAugmentation);
+    const ttaToggle = document.getElementById('ttaToggle');
+    const testTimeAugmentation = ttaToggle ? !!ttaToggle.checked : ttaDefault;
 
     if (!isTaskRunnable(selectedTask)) {
       this.updateOutput(`SCT task "${selectedTask.displayName}" is unavailable.`);
@@ -947,7 +962,8 @@ export class SpinalCordToolboxApp {
       patchSize: effectivePatchSize,
       preprocessing: selectedAsset?.preprocessing || {},
       output: selectedAsset?.output || {},
-      testTimeAugmentation: !!document.getElementById('ttaToggle')?.checked,
+      keepLargestComponent: !!(assetDefaults.keepLargestComponent ?? Config.INFERENCE_DEFAULTS.keepLargestComponent),
+      testTimeAugmentation,
       modelBaseUrl
     });
   }
@@ -1089,9 +1105,6 @@ export class SpinalCordToolboxApp {
   }
 
   resetProcessingInputs() {
-    const overlapSelect = document.getElementById('overlapSelect');
-    if (overlapSelect) overlapSelect.value = String(Config.INFERENCE_DEFAULTS.overlap);
-
     const thresholdInput = document.getElementById('thresholdInput');
     if (thresholdInput) thresholdInput.value = String(Config.INFERENCE_DEFAULTS.probabilityThreshold);
 
@@ -1099,7 +1112,7 @@ export class SpinalCordToolboxApp {
     if (minSizeInput) minSizeInput.value = String(Config.INFERENCE_DEFAULTS.minComponentSize);
 
     const ttaToggle = document.getElementById('ttaToggle');
-    if (ttaToggle) ttaToggle.checked = false;
+    if (ttaToggle) ttaToggle.checked = Config.INFERENCE_DEFAULTS.testTimeAugmentation;
 
     this.applyTaskInferenceDefaults();
   }

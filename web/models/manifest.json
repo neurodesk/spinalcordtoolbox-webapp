@@ -55,9 +55,11 @@
             ]
           },
           "inferenceDefaults": {
+            "overlap": 0.5,
             "probabilityThreshold": 0.5,
-            "minComponentSize": 10,
-            "testTimeAugmentation": true
+            "minComponentSize": 0,
+            "keepLargestComponent": true,
+            "testTimeAugmentation": false
           },
           "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.8"
         }

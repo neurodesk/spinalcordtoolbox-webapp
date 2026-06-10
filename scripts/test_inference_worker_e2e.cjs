@@ -302,7 +302,7 @@ async function runWorkerCase(testCase) {
       data: {
         inputData: inputArrayBuffer,
         settings: {
-          overlap: 0,
+          overlap: asset?.inferenceDefaults?.overlap ?? 0,
           taskId: testCase.taskId,
           modelAssetId: testCase.modelAssetId,
           supportStatus: 'supported',
@@ -310,6 +310,7 @@ async function runWorkerCase(testCase) {
           provenance: { taskId: testCase.taskId, appVersion: 'test' },
           threshold: asset?.inferenceDefaults?.probabilityThreshold ?? 0.5,
           minComponentSize: asset?.inferenceDefaults?.minComponentSize ?? 10,
+          keepLargestComponent: !!asset?.inferenceDefaults?.keepLargestComponent,
           modelName: testCase.modelName,
           modelUrl: asset?.downloadUrl || null,
           patchSize: testCase.patchSize || asset?.patchSize,

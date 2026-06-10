@@ -38,7 +38,7 @@ const WEBAPP_PIPELINE_FEATURES = Object.freeze({
     labels: ['Drop NIfTI or DICOM files']
   },
   segmentation: {
-    controls: ['stepInferenceSection', 'modelSelect', 'runSegmentation', 'overlapSelect', 'thresholdInput', 'minSizeInput'],
+    controls: ['stepInferenceSection', 'modelSelect', 'runSegmentation', 'thresholdInput', 'minSizeInput'],
     workerMessages: ['run-inference'],
     labels: ['SCT Segmentation', 'SCT Task', 'Probability Threshold', 'Min Component Size']
   },

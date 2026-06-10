@@ -380,8 +380,11 @@ async function runCase(fixture) {
   const outputName = session.outputNames[0];
 
   const patchSize = asset.patchSize;
+  const overlap = asset.inferenceDefaults?.overlap ?? 0;
   const threshold = THRESHOLD_OVERRIDE != null ? THRESHOLD_OVERRIDE : (asset.inferenceDefaults?.probabilityThreshold ?? 0.5);
   const minComponentSize = MIN_COMPONENT_SIZE_OVERRIDE != null ? MIN_COMPONENT_SIZE_OVERRIDE : (asset.inferenceDefaults?.minComponentSize ?? 10);
+  const keepLargestComponent = !!asset.inferenceDefaults?.keepLargestComponent;
+  const testTimeAugmentation = !!asset.inferenceDefaults?.testTimeAugmentation;
 
   const runPatch = async (patch, patchDims) => {
     const [p0, p1, p2] = patchDims;
@@ -444,9 +447,10 @@ async function runCase(fixture) {
       { data: modelInputData, dims: modelInputDims, patchSize },
       runPatch,
       {
+        overlap,
         threshold,
         minComponentSize,
-        testTimeAugmentation: !!asset.inferenceDefaults?.testTimeAugmentation,
+        testTimeAugmentation,
         channelCount: asset.output.channelCount || asset.output.channelOrder?.length || asset.output.regions?.length || 1,
         regions: asset.output.regions || [],
         onLog: () => {},
@@ -479,9 +483,11 @@ async function runCase(fixture) {
     { data: modelInputData, dims: modelInputDims, patchSize },
     runPatch,
     {
+      overlap,
       threshold,
       minComponentSize,
-      testTimeAugmentation: !!asset.inferenceDefaults?.testTimeAugmentation,
+      keepLargestComponent,
+      testTimeAugmentation,
       onLog: () => {},
       onProgress: (stepsDone, totalSteps) => {
         if (totalSteps && stepsDone % 5 === 0) process.stderr.write(`${fixture.id}: ${stepsDone}/${totalSteps}\n`);

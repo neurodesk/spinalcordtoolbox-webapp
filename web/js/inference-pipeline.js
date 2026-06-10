@@ -461,6 +461,25 @@
     return result;
   }
 
+  function keepLargestComponent(binaryMask, dims) {
+    const n = dims[0] * dims[1] * dims[2];
+    const { labels, numComponents } = connectedComponents3D(binaryMask, dims);
+    if (numComponents <= 1) return binaryMask;
+    const sizes = new Int32Array(numComponents + 1);
+    for (let i = 0; i < n; i++) {
+      if (labels[i] > 0) sizes[labels[i]]++;
+    }
+    let largestLabel = 1;
+    for (let label = 2; label <= numComponents; label++) {
+      if (sizes[label] > sizes[largestLabel]) largestLabel = label;
+    }
+    const result = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if (labels[i] === largestLabel) result[i] = 1;
+    }
+    return result;
+  }
+
   /**
    * Run the full SCT inference pipeline on a normalized-or-raw volume.
    *
@@ -474,6 +493,7 @@
    *   overlap:               sliding-window overlap fraction (default 0)
    *   threshold:             probability threshold for binarization (default 0.5)
    *   minComponentSize:      drop CCs smaller than this (default 10)
+   *   keepLargestComponent:  keep only the largest CC before size cleanup (default false)
    *   testTimeAugmentation:  average across 8 axis-flipped predictions (default false)
    *   normalizeInput:        z-score normalize before padding (default true)
    *
@@ -489,6 +509,7 @@
     const overlap = options.overlap != null ? options.overlap : 0;
     const threshold = options.threshold != null ? options.threshold : 0.5;
     const minComponentSize = options.minComponentSize != null ? options.minComponentSize : 10;
+    const keepLargestComponentEnabled = !!options.keepLargestComponent;
     const testTimeAugmentation = !!options.testTimeAugmentation;
     const normalizeInput = options.normalizeInput !== false;
     const onLog = options.onLog || (() => {});
@@ -607,6 +628,11 @@
       outputLabels = unpadVolume(outputLabels, processingDims, prePadDims, Uint8Array);
     }
     const preCleanupLabels = outputLabels;
+
+    if (keepLargestComponentEnabled) {
+      onLog('Keeping largest connected component...');
+      outputLabels = keepLargestComponent(outputLabels, prePadDims);
+    }
 
     if (minComponentSize > 1) {
       onLog(`Removing components smaller than ${minComponentSize} voxels...`);
@@ -1080,6 +1106,7 @@
     splitLabelsByClassMap,
     connectedComponents3D,
     removeSmallComponents,
+    keepLargestComponent,
     TTA_AXES
   };
 }));

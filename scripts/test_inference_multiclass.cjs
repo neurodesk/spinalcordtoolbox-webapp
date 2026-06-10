@@ -129,6 +129,27 @@ const pipeline = require('../web/js/inference-pipeline.js');
     assert.deepEqual([...result.labels], [1, 0, 1, 0], 'binary sigmoid inference output stays unchanged');
   }
 
+  {
+    const largest = pipeline.keepLargestComponent(
+      new Uint8Array([1, 1, 0, 1, 0]),
+      [5, 1, 1]
+    );
+    assert.deepEqual([...largest], [1, 1, 0, 0, 0], 'largest-component cleanup keeps only the biggest foreground island');
+  }
+
+  {
+    const result = await pipeline.runInferencePipeline(
+      {
+        data: new Float32Array([0, 0, 0, 0, 0]),
+        dims: [5, 1, 1],
+        patchSize: [5, 1, 1]
+      },
+      async () => new Float32Array([10, 10, -10, 10, -10]),
+      { normalizeInput: false, threshold: 0.5, minComponentSize: 0, keepLargestComponent: true }
+    );
+    assert.deepEqual([...result.labels], [1, 1, 0, 0, 0], 'binary inference can apply SCT-style largest-component cleanup');
+  }
+
   console.log('Inference post-processing tests passed');
 })().catch(error => {
   console.error(error);

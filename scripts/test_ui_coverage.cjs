@@ -37,7 +37,6 @@ const UI_COVERAGE = Object.freeze([
   { id: 'runSegmentation', behavior: 'starts worker inference', coveredBy: ['batch', 'worker', 'static-dom'] },
   { id: 'abortInferenceBtn', behavior: 'aborts inference step', coveredBy: ['static-dom'] },
   { id: 'cancelButton', behavior: 'cancels active pipeline step', coveredBy: ['static-dom'] },
-  { id: 'overlapSelect', behavior: 'passes overlap setting to inference', coveredBy: ['batch', 'static-dom'] },
   { id: 'thresholdInput', behavior: 'passes probability threshold to inference', coveredBy: ['batch', 'worker', 'static-dom'] },
   { id: 'minSizeInput', behavior: 'passes connected-component cleanup threshold', coveredBy: ['batch', 'worker', 'static-dom'] },
   { id: 'ttaToggle', behavior: 'passes test-time augmentation setting', coveredBy: ['static-dom'] },

@@ -137,9 +137,11 @@ export const SCT_TASKS = [
           targetSpacing: [0.8958333, 0.7, 1.0]
         },
         inferenceDefaults: {
+          overlap: 0.5,
           probabilityThreshold: 0.5,
-          minComponentSize: 10,
-          testTimeAugmentation: true
+          minComponentSize: 0,
+          keepLargestComponent: true,
+          testTimeAugmentation: false
         }
       }
     ]
