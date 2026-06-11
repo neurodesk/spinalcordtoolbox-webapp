@@ -14,7 +14,7 @@ import { ModalManager } from './modules/ui/ModalManager.js';
 import { FallbackNiftiPreview } from './modules/fallback-nifti-preview.js';
 import * as Config from './app/config.js';
 import { generateNiivueColormap, getLabelName } from './app/labels.js';
-import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, getTaskModelUrl, isTaskRunnable } from './app/sct-tasks.js';
+import { DEFAULT_TASK_ID, SCT_TASKS, getDefaultTask, getPrimaryModelAsset, getTaskById, getModelCacheKey, getTaskModelUrl, getTaskTemplateAssetUrl, isTaskRunnable } from './app/sct-tasks.js';
 import { computeAutoWindow } from './modules/ui/percentile.js';
 import './modules/sct-processing.js';
 
@@ -978,11 +978,13 @@ export class SpinalCordToolboxApp {
         return;
       }
       const modelBaseUrl = new URL(Config.MODEL_BASE_URL, window.location.href).href;
+      const pam50LevelsUrl = getTaskTemplateAssetUrl('vertebrae', 'pam50-levels');
       if (output) output.textContent = '';
       this.beginAbortableStep('processing');
       this.setStepRunning('processing');
       this.inferenceExecutor.runVertebralLabeling({
         modelBaseUrl,
+        pam50LevelsUrl: pam50LevelsUrl ? new URL(pam50LevelsUrl, window.location.href).href : null,
         scaleDist: 0.55,
         detectorMinScore: 0.1
       }).catch(error => this.onInferenceError(error.message));

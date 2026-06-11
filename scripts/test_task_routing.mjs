@@ -20,8 +20,11 @@ const {
   SCT_TASKS,
   isTaskRunnable,
   getPrimaryModelAsset,
-  getTaskModelUrl
+  getTaskModelUrl,
+  getTaskTemplateAssetUrl
 } = await import(pathToFileURL(path.join(ROOT, 'web/js/app/sct-tasks.js')));
+
+const HOSTED_MODEL_URL_RE = /^https:\/\/huggingface\.co\/datasets\/sbollmann\/sct-webapp-data\/resolve\/[0-9a-f]{40}\/web\/models\/.+$/;
 
 // Tasks offered in the segmentation dropdown must each have a primary model
 // asset. Without one, runInference() falls back to Config.MODEL.name.
@@ -29,6 +32,8 @@ const segmentationDropdownTasks = SCT_TASKS.filter(task => isTaskRunnable(task) 
 for (const task of segmentationDropdownTasks) {
   const asset = getPrimaryModelAsset(task);
   assert.ok(asset, `Task "${task.id}" appears in the segmentation dropdown but has no primary model asset. Either add modelAssets, mark it processingOnly, or set supportStatus to unsupported.`);
+  assert.match(asset.downloadUrl || '', HOSTED_MODEL_URL_RE, `Task "${task.id}" must use a pinned Hugging Face model asset URL`);
+  assert.equal(getTaskModelUrl(task), asset.downloadUrl, `Task "${task.id}" runtime URL must resolve to the hosted model asset`);
 }
 
 // The vertebrae task is post-processing and must be hidden from the segmentation
@@ -37,6 +42,9 @@ const vertebrae = SCT_TASKS.find(task => task.id === 'vertebrae');
 assert.ok(vertebrae, 'vertebrae task is defined');
 assert.equal(vertebrae.processingOnly, true, 'vertebrae must be flagged processingOnly');
 assert.ok(!segmentationDropdownTasks.includes(vertebrae), 'vertebrae must be filtered out of the segmentation dropdown');
+for (const assetId of ['pam50-t2', 'pam50-levels']) {
+  assert.match(getTaskTemplateAssetUrl(vertebrae, assetId) || '', HOSTED_MODEL_URL_RE, `Vertebrae template asset "${assetId}" must use a pinned Hugging Face URL`);
+}
 
 const lesionSci = SCT_TASKS.find(task => task.id === 'lesion_sci_t2');
 assert.ok(lesionSci, 'lesion_sci_t2 task is defined');
@@ -98,6 +106,11 @@ assert.match(appJs, /keepLargestComponent:\s*!!\(assetDefaults\.keepLargestCompo
 
 const workerJs = fs.readFileSync(path.join(ROOT, 'web/js/inference-worker.js'), 'utf8');
 assert.match(workerJs, /resolvedModelUrl\s*=\s*modelUrl\s*\|\|\s*`\$\{modelBaseUrl\}\/\$\{modelName\}`/, 'worker must prefer per-asset modelUrl before falling back to MODEL_BASE_URL + filename');
+assert.match(workerJs, /pam50LevelsUrl\s*=\s*params\.pam50LevelsUrl\s*\|\|/, 'worker must prefer the hosted PAM50 levels URL from task metadata');
+
+const gitAttributesPath = path.join(ROOT, '.gitattributes');
+const gitAttributes = fs.existsSync(gitAttributesPath) ? fs.readFileSync(gitAttributesPath, 'utf8') : '';
+assert.doesNotMatch(gitAttributes, /filter=lfs/, 'model assets must not be tracked with Git LFS after migration to Hugging Face');
 
 // runInference() must reject processingOnly / asset-less tasks rather than
 // silently falling back to Config.MODEL.name.

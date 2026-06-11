@@ -21,6 +21,7 @@ const ort = require('onnxruntime-node');
 const nifti = require(path.resolve(__dirname, '../web/nifti-js/index.js'));
 const manifest = require('../web/models/manifest.json');
 const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
+const { ensureHostedAsset } = require('./hosted-assets.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const WORKER_PATH = path.join(ROOT, 'web/js/inference-worker.js');
@@ -191,6 +192,8 @@ function makeFetchShim() {
 async function runWorkerCase(testCase) {
   const task = manifest.tasks.find(item => item.id === testCase.taskId);
   const asset = task?.modelAssets?.find(item => item.id === testCase.modelAssetId);
+  if (!asset) throw new Error(`No model asset ${testCase.modelAssetId} for task ${testCase.taskId}`);
+  await ensureHostedAsset(ROOT, asset);
   console.log('Loading worker source...');
   const workerSource = fs.readFileSync(WORKER_PATH, 'utf8');
 

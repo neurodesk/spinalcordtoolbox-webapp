@@ -4,9 +4,9 @@ web/wasm/
 # Built preprocessing WASM (built from rust-preprocessing/)
 web/preprocessing-wasm/
 
-# Model files
-# web/models/*.onnx
-web/models/totalspineseg-step1.onnx
+# Hosted model/template files (downloaded from Hugging Face)
+web/models/*.onnx
+web/models/templates/**/*.nii.gz
 
 # OS files
 .DS_Store

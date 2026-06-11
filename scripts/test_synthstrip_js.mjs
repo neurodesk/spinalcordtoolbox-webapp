@@ -5,11 +5,18 @@
  */
 import * as ort from 'onnxruntime-node';
 import * as nifti from 'nifti-reader-js';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const { ensureHostedAsset, EXTRA_HOSTED_ASSETS } = require('./hosted-assets.cjs');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const TOF_PATH = '/Users/uqsbollm/Downloads/testdata/tof_sub004.nii';
 const DOCKER_MASK_PATH = '/Users/uqsbollm/Downloads/testdata/synthstrip_docker_mask.nii';
-const ONNX_PATH = '/Users/uqsbollm/github-repos/spinalcordtoolbox-webapp/web/models/synthstrip.onnx';
+const ONNX_PATH = process.env.SYNTHSTRIP_ONNX_PATH || (await ensureHostedAsset(ROOT, EXTRA_HOSTED_ASSETS.find(asset => asset.id === 'synthstrip'))).path;
 const OUT_DIR = '/Users/uqsbollm/Downloads/testdata';
 
 // ---- NIfTI helpers ----

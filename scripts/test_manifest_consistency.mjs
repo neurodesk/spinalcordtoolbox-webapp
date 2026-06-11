@@ -50,6 +50,14 @@ const ASSET_FIELDS = [
   'conversionStatus'
 ];
 
+const TEMPLATE_ASSET_FIELDS = [
+  'id',
+  'filename',
+  'downloadUrl',
+  'checksum',
+  'sizeBytes'
+];
+
 const mismatches = [];
 
 for (const id of manifestIds) {
@@ -94,6 +102,25 @@ for (const id of manifestIds) {
         assert.deepEqual(la[field], ma[field]);
       } catch {
         mismatches.push(`${id}.modelAssets[${i}].${field}: sct-tasks.js=${JSON.stringify(la[field])} manifest.json=${JSON.stringify(ma[field])}`);
+      }
+    }
+  }
+
+  const mTemplateAssets = Array.isArray(m.templateAssets) ? m.templateAssets : [];
+  const lTemplateAssets = Array.isArray(l.templateAssets) ? l.templateAssets : [];
+  if (lTemplateAssets.length !== mTemplateAssets.length) {
+    mismatches.push(`${id}: template asset count differs (sct-tasks.js=${lTemplateAssets.length} manifest.json=${mTemplateAssets.length})`);
+    continue;
+  }
+
+  for (let i = 0; i < mTemplateAssets.length; i++) {
+    const ma = mTemplateAssets[i];
+    const la = lTemplateAssets[i];
+    for (const field of TEMPLATE_ASSET_FIELDS) {
+      try {
+        assert.deepEqual(la[field], ma[field]);
+      } catch {
+        mismatches.push(`${id}.templateAssets[${i}].${field}: sct-tasks.js=${JSON.stringify(la[field])} manifest.json=${JSON.stringify(ma[field])}`);
       }
     }
   }

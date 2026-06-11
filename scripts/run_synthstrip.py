@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Test SynthStrip with FreeSurfer-exact pipeline and binary_fill_holes."""
 
+import os
+from pathlib import Path
+
 import numpy as np
 import nibabel as nib
 import onnxruntime as ort
 from scipy.ndimage import label, binary_fill_holes, zoom, distance_transform_edt
 
+ROOT = Path(__file__).resolve().parents[1]
 TOF_PATH = "/Users/uqsbollm/Downloads/testdata/tof_input.nii"
-ONNX_PATH = "/Users/uqsbollm/github-repos/spinalcordtoolbox-webapp/web/models/synthstrip.onnx"
+ONNX_PATH = os.environ.get("SYNTHSTRIP_ONNX_PATH", str(ROOT / "web/models/synthstrip.onnx"))
 OUT_DIR = "/Users/uqsbollm/Downloads/testdata"
 
 session = ort.InferenceSession(ONNX_PATH, providers=["CPUExecutionProvider"])

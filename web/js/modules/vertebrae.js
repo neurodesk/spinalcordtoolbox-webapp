@@ -58,15 +58,19 @@
     return { data, dims, datatype };
   }
 
+  function isRemoteAssetUrl(url) {
+    return /^https?:\/\//i.test(String(url || ''));
+  }
+
   async function loadBinaryAsset(url) {
-    if (deps.fs) return deps.fs.readFileSync(url);
+    if (deps.fs && !isRemoteAssetUrl(url)) return deps.fs.readFileSync(url);
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load ${url}: ${response.status}`);
     return new Uint8Array(await response.arrayBuffer());
   }
 
   async function loadTextAsset(url) {
-    if (deps.fs) return deps.fs.readFileSync(url, 'utf8');
+    if (deps.fs && !isRemoteAssetUrl(url)) return deps.fs.readFileSync(url, 'utf8');
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Failed to load ${url}: ${response.status}`);
     return response.text();

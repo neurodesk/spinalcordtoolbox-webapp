@@ -128,6 +128,7 @@ export const SCT_TASKS = [
         sourceFormat: 'SCT model package',
         browserFormat: 'onnx',
         filename: 'sct-spinalcord.onnx',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/sct-spinalcord.onnx`,
         conversionStatus: 'converted',
         checksum: 'sha256:5ada810b71b1ad6f445b805af899bd4f6c08f85045927450dc20d2395c1beddd',
         sizeBytes: 123468139,
@@ -209,6 +210,7 @@ export const SCT_TASKS = [
         sourceFormat: 'SCT model package',
         browserFormat: 'onnx',
         filename: 'sct-graymatter.onnx',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/sct-graymatter.onnx`,
         conversionStatus: 'converted',
         checksum: 'sha256:73c1d741aa2f2f38555e250b0d69b95ae72f8d69b56c162c424985660e705897',
         sizeBytes: 134270580,
@@ -246,14 +248,18 @@ export const SCT_TASKS = [
       {
         id: 'pam50-t2',
         filename: 'templates/PAM50/PAM50_t2.nii.gz',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/templates/PAM50/PAM50_t2.nii.gz`,
         sourceUrl: 'https://github.com/spinalcordtoolbox/PAM50',
-        checksum: null
+        checksum: 'sha256:3e98b3275454e783a2683af0a6c895a9fa40c5c8da7eac9d6d478516fe85f0a8',
+        sizeBytes: 24057343
       },
       {
         id: 'pam50-levels',
         filename: 'templates/PAM50/PAM50_levels.nii.gz',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/templates/PAM50/PAM50_levels.nii.gz`,
         sourceUrl: 'https://github.com/spinalcordtoolbox/PAM50',
-        checksum: null
+        checksum: 'sha256:5e5b27aee46837abfdb85bffb01d5eb6c20f41ed7d308f5388fc86fd251942b6',
+        sizeBytes: 129677
       },
       {
         id: 'c2c3-t2-hog-svm',
@@ -363,6 +369,7 @@ export const SCT_TASKS = [
         sourceFormat: 'SCT SCIsegV2 nnUNet region package',
         browserFormat: 'onnx',
         filename: 'sct-lesion-sci-t2.onnx',
+        downloadUrl: `${HF_DATASET_ASSET_BASE_URL}/web/models/sct-lesion-sci-t2.onnx`,
         conversionStatus: 'converted',
         checksum: 'sha256:3b28b46ac85345fd33f0ce393c6538370794fe9b5d1ffedeb5df88891bfa1cdb',
         sizeBytes: 123451938,
@@ -655,6 +662,11 @@ export function getPrimaryModelAsset(taskOrId) {
   return task?.modelAssets?.[0] || null;
 }
 
+export function getTemplateAsset(taskOrId, assetId) {
+  const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
+  return task?.templateAssets?.find(asset => asset.id === assetId) || null;
+}
+
 export function getModelCacheKey(taskOrId, asset = getPrimaryModelAsset(taskOrId)) {
   const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
   const assetId = asset?.id || 'no-asset';
@@ -689,10 +701,17 @@ export function buildManifest() {
   };
 }
 
-export function getTaskModelUrl(taskOrId) {
-  const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
-  const asset = getPrimaryModelAsset(task);
+export function getAssetUrl(asset) {
   if (asset?.downloadUrl) return asset.downloadUrl;
   if (!asset?.filename) return null;
   return `${MODEL_BASE_URL}/${asset.filename}`;
+}
+
+export function getTaskModelUrl(taskOrId) {
+  const task = typeof taskOrId === 'string' ? getTaskById(taskOrId) : taskOrId;
+  return getAssetUrl(getPrimaryModelAsset(task));
+}
+
+export function getTaskTemplateAssetUrl(taskOrId, assetId) {
+  return getAssetUrl(getTemplateAsset(taskOrId, assetId));
 }

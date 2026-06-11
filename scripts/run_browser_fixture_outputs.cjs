@@ -16,6 +16,7 @@ const zlib = require('node:zlib');
 const ort = require('onnxruntime-node');
 const fixtures = require('./batch-parity-fixtures.cjs');
 const { loadNifti, compareNiftiOutputs } = require('./batch-parity-lib.cjs');
+const { ensureHostedAsset } = require('./hosted-assets.cjs');
 const pipeline = require(path.resolve(__dirname, '../web/js/inference-pipeline.js'));
 const vertebrae = require(path.resolve(__dirname, '../web/js/modules/vertebrae.js'));
 
@@ -195,6 +196,13 @@ function resolveTaskAsset(fixtureId) {
   return { taskId, asset };
 }
 
+function resolveTaskTemplateAsset(taskId, assetId) {
+  const task = MANIFEST.tasks.find(t => t.id === taskId);
+  const asset = task?.templateAssets?.find(item => item.id === assetId);
+  if (!asset) throw new Error(`No template asset ${assetId} for task ${taskId}`);
+  return asset;
+}
+
 function browserOutputPathForFixture(fixture, stage = null) {
   if (stage && fixture.browserOutputPaths?.[stage]) {
     return path.join(ROOT, fixture.browserOutputPaths[stage]);
@@ -367,7 +375,7 @@ function orientationFlipAxesFromRAS(modelOrientation) {
 async function runCase(fixture) {
   const inputPath = path.join(ROOT, fixture.inputPath);
   const { taskId, asset } = resolveTaskAsset(fixture.id);
-  const modelPath = path.join(ROOT, 'web/models', asset.filename);
+  const { path: modelPath } = await ensureHostedAsset(ROOT, asset);
 
   const { header, dims, data, affine } = readNiftiRaw(inputPath);
   const headerView = new DataView(header.buffer, header.byteOffset, header.byteLength);
@@ -500,12 +508,13 @@ async function runCase(fixture) {
   const restored = modelOutputToInput(result.labels, result.dims);
   let outputLabels = restored.labels;
   if (fixture.id === 'batch_t2_label_vertebrae') {
+    const { path: pam50LevelsPath } = await ensureHostedAsset(ROOT, resolveTaskTemplateAsset('vertebrae', 'pam50-levels'));
     const labeled = await vertebrae.labelVertebrae({
       anatomy: data,
       segmentation: restored.labels,
       dims,
       c2c3ModelUrl: path.join(ROOT, 'web/models/c2c3_disc_models/t2_model.yml'),
-      pam50LevelsUrl: path.join(ROOT, 'web/models/templates/PAM50/PAM50_levels.nii.gz'),
+      pam50LevelsUrl: pam50LevelsPath,
       scaleDist: 0.55,
       detectorMinScore: 0.1
     });

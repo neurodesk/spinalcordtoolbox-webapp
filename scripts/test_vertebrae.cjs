@@ -6,10 +6,14 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const vertebrae = require('../web/js/modules/vertebrae.js');
+const manifest = require('../web/models/manifest.json');
 const { loadNifti } = require('./batch-parity-lib.cjs');
 const { ensureSctBatchFixtures } = require('./huggingface-fixtures.cjs');
+const { ensureHostedAsset } = require('./hosted-assets.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
+const vertebraeTask = manifest.tasks.find(task => task.id === 'vertebrae');
+const pam50LevelsAsset = vertebraeTask?.templateAssets?.find(asset => asset.id === 'pam50-levels');
 
 {
   const modelText = fs.readFileSync(path.join(ROOT, 'web/models/c2c3_disc_models/t2_model.yml'), 'utf8');
@@ -36,6 +40,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 (async () => {
   await ensureSctBatchFixtures(ROOT);
+  const { path: pam50LevelsPath } = await ensureHostedAsset(ROOT, pam50LevelsAsset);
   const browserOutputPath = path.join(ROOT, 'test_data/batch_t2_label_vertebrae/browser_output.nii.gz');
   if (!fs.existsSync(browserOutputPath)) {
     const result = spawnSync(process.execPath, [path.join(ROOT, 'scripts/run_browser_fixture_outputs.cjs')], {
@@ -57,7 +62,7 @@ const ROOT = path.resolve(__dirname, '..');
     segmentation,
     dims: input.dims,
     c2c3ModelUrl: path.join(ROOT, 'web/models/c2c3_disc_models/t2_model.yml'),
-    pam50LevelsUrl: path.join(ROOT, 'web/models/templates/PAM50/PAM50_levels.nii.gz')
+    pam50LevelsUrl: pam50LevelsPath
   });
 
   const labels = new Set(result.labels);

@@ -26,12 +26,13 @@ done
 echo "Done. Files saved to wasm/"
 
 # Vertebral labeling assets
-PAM50_BASE="https://raw.githubusercontent.com/spinalcordtoolbox/PAM50/master/template"
+HF_DATASET_ASSET_REVISION="55c9462a14bc9c84cf093c348cffda9148099df9"
+HF_DATASET_ASSET_BASE="https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/${HF_DATASET_ASSET_REVISION}"
 mkdir -p "$SCRIPT_DIR/models/templates/PAM50"
 echo "Downloading PAM50 vertebral labeling assets..."
-for f in PAM50_t2.nii.gz PAM50_levels.nii.gz info_label.txt; do
+for f in PAM50_t2.nii.gz PAM50_levels.nii.gz; do
   echo "  $f"
-  curl -sL -o "$SCRIPT_DIR/models/templates/PAM50/$f" "$PAM50_BASE/$f"
+  curl -sL -o "$SCRIPT_DIR/models/templates/PAM50/$f" "$HF_DATASET_ASSET_BASE/web/models/templates/PAM50/$f"
 done
 
 mkdir -p "$SCRIPT_DIR/models/c2c3_disc_models"

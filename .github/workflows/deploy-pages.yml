@@ -51,20 +51,49 @@ jobs:
       - name: Verify deployed model assets
         run: |
           python3 - <<'PY'
+          import json
+          import urllib.request
           from pathlib import Path
 
           min_size_bytes = 100_000
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
-          asset_paths = list(Path("web/models").glob("*.onnx"))
-          asset_paths += list(Path("web/models/templates").glob("**/*.nii.gz"))
-
-          for path in sorted(asset_paths):
+          def verify_local(path, expected_size=None):
               data = path.read_bytes()
               if data.startswith(lfs_pointer_prefix):
                   raise SystemExit(f"{path} is a Git LFS pointer, not a deployed binary")
-              if len(data) <= min_size_bytes:
+              if str(path).endswith((".onnx", ".nii.gz")) and len(data) <= min_size_bytes:
                   raise SystemExit(f"{path} is unexpectedly small: {len(data)} bytes")
+              if expected_size and len(data) != expected_size:
+                  raise SystemExit(f"{path} size mismatch: {len(data)} != {expected_size}")
+
+          def verify_remote(url, filename, expected_size=None):
+              request = urllib.request.Request(url, method="HEAD")
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  if response.status != 200:
+                      raise SystemExit(f"{filename} hosted asset returned HTTP {response.status}")
+                  content_length = response.headers.get("Content-Length")
+                  if expected_size and content_length and int(content_length) != expected_size:
+                      raise SystemExit(f"{filename} hosted size mismatch: {content_length} != {expected_size}")
+
+          manifest = json.loads(Path("web/models/manifest.json").read_text(encoding="utf-8"))
+          checked = 0
+          for task in manifest.get("tasks", []):
+              for asset in [*task.get("modelAssets", []), *task.get("templateAssets", [])]:
+                  filename = asset.get("filename")
+                  if not filename:
+                      continue
+                  local_path = Path("web/models") / filename
+                  expected_size = asset.get("sizeBytes")
+                  if asset.get("downloadUrl"):
+                      verify_remote(asset["downloadUrl"], filename, expected_size)
+                      checked += 1
+                  elif local_path.exists():
+                      verify_local(local_path, expected_size)
+                      checked += 1
+                  elif asset.get("conversionStatus") in {"native", "converted"}:
+                      raise SystemExit(f"{filename} has no local file and no hosted downloadUrl")
+          print(f"Verified {checked} deployed asset reference(s).")
           PY
 
       - name: Upload production artifact
@@ -102,20 +131,49 @@ jobs:
       - name: Verify deployed model assets
         run: |
           python3 - <<'PY'
+          import json
+          import urllib.request
           from pathlib import Path
 
           min_size_bytes = 100_000
           lfs_pointer_prefix = b"version https://git-lfs.github.com/spec/"
 
-          asset_paths = list(Path("web/models").glob("*.onnx"))
-          asset_paths += list(Path("web/models/templates").glob("**/*.nii.gz"))
-
-          for path in sorted(asset_paths):
+          def verify_local(path, expected_size=None):
               data = path.read_bytes()
               if data.startswith(lfs_pointer_prefix):
                   raise SystemExit(f"{path} is a Git LFS pointer, not a deployed binary")
-              if len(data) <= min_size_bytes:
+              if str(path).endswith((".onnx", ".nii.gz")) and len(data) <= min_size_bytes:
                   raise SystemExit(f"{path} is unexpectedly small: {len(data)} bytes")
+              if expected_size and len(data) != expected_size:
+                  raise SystemExit(f"{path} size mismatch: {len(data)} != {expected_size}")
+
+          def verify_remote(url, filename, expected_size=None):
+              request = urllib.request.Request(url, method="HEAD")
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  if response.status != 200:
+                      raise SystemExit(f"{filename} hosted asset returned HTTP {response.status}")
+                  content_length = response.headers.get("Content-Length")
+                  if expected_size and content_length and int(content_length) != expected_size:
+                      raise SystemExit(f"{filename} hosted size mismatch: {content_length} != {expected_size}")
+
+          manifest = json.loads(Path("web/models/manifest.json").read_text(encoding="utf-8"))
+          checked = 0
+          for task in manifest.get("tasks", []):
+              for asset in [*task.get("modelAssets", []), *task.get("templateAssets", [])]:
+                  filename = asset.get("filename")
+                  if not filename:
+                      continue
+                  local_path = Path("web/models") / filename
+                  expected_size = asset.get("sizeBytes")
+                  if asset.get("downloadUrl"):
+                      verify_remote(asset["downloadUrl"], filename, expected_size)
+                      checked += 1
+                  elif local_path.exists():
+                      verify_local(local_path, expected_size)
+                      checked += 1
+                  elif asset.get("conversionStatus") in {"native", "converted"}:
+                      raise SystemExit(f"{filename} has no local file and no hosted downloadUrl")
+          print(f"Verified {checked} deployed asset reference(s).")
           PY
 
       - name: Upload staging artifact

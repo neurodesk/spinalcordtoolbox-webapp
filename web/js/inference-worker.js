@@ -1426,13 +1426,15 @@ async function stepVertebralLabeling(params = {}) {
   self._currentTaskId = 'vertebrae';
   postProgress(0.05, 'Loading vertebral labeling assets...');
   const modelBaseUrl = params.modelBaseUrl || '../models';
+  const c2c3ModelUrl = params.c2c3ModelUrl || `${modelBaseUrl}/c2c3_disc_models/t2_model.yml`;
+  const pam50LevelsUrl = params.pam50LevelsUrl || `${modelBaseUrl}/templates/PAM50/PAM50_levels.nii.gz`;
   const result = await self.SCTVertebrae.labelVertebrae({
     anatomy: workerState.rasData,
     segmentation: workerState.segLabelsRAS,
     dims: workerState.rasDims,
     spacing: workerState.rasSpacing,
-    c2c3ModelUrl: `${modelBaseUrl}/c2c3_disc_models/t2_model.yml`,
-    pam50LevelsUrl: `${modelBaseUrl}/templates/PAM50/PAM50_levels.nii.gz`,
+    c2c3ModelUrl,
+    pam50LevelsUrl,
     scaleDist: params.scaleDist ?? 0.55,
     detectorMinScore: params.detectorMinScore ?? 0.1
   });

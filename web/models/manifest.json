@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "sctStableSource": "https://spinalcordtoolbox.com/stable/user_section/command-line/sct_deepseg.html",
-  "generatedAt": "2026-05-04T17:56:29.168Z",
+  "generatedAt": "2026-06-11T00:00:00.000Z",
   "tasks": [
     {
       "id": "spinalcord",
@@ -38,6 +38,7 @@
           "sourceFormat": "SCT model package",
           "browserFormat": "onnx",
           "filename": "sct-spinalcord.onnx",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/sct-spinalcord.onnx",
           "conversionStatus": "converted",
           "checksum": "sha256:5ada810b71b1ad6f445b805af899bd4f6c08f85045927450dc20d2395c1beddd",
           "sizeBytes": 123468139,
@@ -62,7 +63,7 @@
             "keepLargestComponent": true,
             "testTimeAugmentation": false
           },
-          "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.8"
+          "cacheKey": "spinalcord:sct-spinalcord:stable:app-7.1.15"
         }
       ],
       "labels": [
@@ -252,6 +253,7 @@
           "sourceFormat": "SCT model package",
           "browserFormat": "onnx",
           "filename": "sct-graymatter.onnx",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/sct-graymatter.onnx",
           "conversionStatus": "converted",
           "checksum": "sha256:73c1d741aa2f2f38555e250b0d69b95ae72f8d69b56c162c424985660e705897",
           "sizeBytes": 134270580,
@@ -268,7 +270,7 @@
             "minComponentSize": 1000,
             "testTimeAugmentation": false
           },
-          "cacheKey": "graymatter:sct-graymatter:stable:app-7.1.8"
+          "cacheKey": "graymatter:sct-graymatter:stable:app-7.1.15"
         }
       ],
       "labels": [
@@ -326,14 +328,18 @@
         {
           "id": "pam50-t2",
           "filename": "templates/PAM50/PAM50_t2.nii.gz",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/templates/PAM50/PAM50_t2.nii.gz",
           "sourceUrl": "https://github.com/spinalcordtoolbox/PAM50",
-          "checksum": null
+          "checksum": "sha256:3e98b3275454e783a2683af0a6c895a9fa40c5c8da7eac9d6d478516fe85f0a8",
+          "sizeBytes": 24057343
         },
         {
           "id": "pam50-levels",
           "filename": "templates/PAM50/PAM50_levels.nii.gz",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/templates/PAM50/PAM50_levels.nii.gz",
           "sourceUrl": "https://github.com/spinalcordtoolbox/PAM50",
-          "checksum": null
+          "checksum": "sha256:5e5b27aee46837abfdb85bffb01d5eb6c20f41ed7d308f5388fc86fd251942b6",
+          "sizeBytes": 129677
         },
         {
           "id": "c2c3-t2-hog-svm",
@@ -760,6 +766,7 @@
           "sourceFormat": "SCT SCIsegV2 nnUNet region package",
           "browserFormat": "onnx",
           "filename": "sct-lesion-sci-t2.onnx",
+          "downloadUrl": "https://huggingface.co/datasets/sbollmann/sct-webapp-data/resolve/55c9462a14bc9c84cf093c348cffda9148099df9/web/models/sct-lesion-sci-t2.onnx",
           "conversionStatus": "converted",
           "checksum": "sha256:3b28b46ac85345fd33f0ce393c6538370794fe9b5d1ffedeb5df88891bfa1cdb",
           "sizeBytes": 123451938,
@@ -844,7 +851,7 @@
             "minComponentSize": 1,
             "testTimeAugmentation": false
           },
-          "cacheKey": "lesion_sci_t2:sct-lesion-sci-t2:r20240729:app-7.1.8"
+          "cacheKey": "lesion_sci_t2:sct-lesion-sci-t2:r20240729:app-7.1.15"
         }
       ],
       "labels": [
@@ -1293,7 +1300,7 @@
             "discPointRadius": 2,
             "postprocess": "totalspineseg-step1"
           },
-          "cacheKey": "spine:totalspineseg-step1:r20251124:app-7.1.11"
+          "cacheKey": "spine:totalspineseg-step1:r20251124:app-7.1.15"
         }
       ],
       "labels": [
