@@ -59,6 +59,9 @@ export class SpinalCordToolboxApp {
     this._renderViewerPromise = Promise.resolve();
     this._renderViewerRequested = false;
     this._lastLocationData = null;
+    this._viewerMode = 'single';
+    this._currentViewType = 'multiplanar';
+    this._activeSessionId = null;
     this.selectedTask = getDefaultTask();
     this.viewerAvailable = false;
     this.viewerUnavailableReason = '';
@@ -83,11 +86,17 @@ export class SpinalCordToolboxApp {
     // Controllers
     this.fileIOController = new FileIOController({
       updateOutput: (msg) => this.updateOutput(msg),
-      onFileLoaded: (file) => this.onFileLoaded(file)
+      onFileLoaded: (file, context) => this.onFileLoaded(file, context),
+      onFilesCleared: () => {
+        void this.onFilesCleared();
+      },
+      onSessionsChanged: () => this.onInputSessionsChanged()
     });
 
     this.viewerController = new ViewerController({
       nv: this.nv,
+      viewerConfig: Config.VIEWER_CONFIG,
+      niivueFactory: (viewerConfig) => new niivue.Niivue(viewerConfig),
       updateOutput: (msg) => this.updateOutput(msg)
     });
 
@@ -128,6 +137,7 @@ export class SpinalCordToolboxApp {
     this.setupEventListeners();
     this.populateTaskSelector();
     this.setupInfoTooltips();
+    this.syncViewerModeControls();
 
     // Start ONNX initialization in background
     this.inferenceExecutor.initialize();
@@ -268,12 +278,22 @@ export class SpinalCordToolboxApp {
     const clearConsole = document.getElementById('clearConsole');
     if (clearConsole) clearConsole.addEventListener('click', () => this.console.clear());
 
+    document.querySelectorAll('[data-viewer-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        void this.setViewerMode(btn.dataset.viewerMode);
+      });
+    });
+
     document.querySelectorAll('.view-tab[data-view]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.view-tab[data-view]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        this._currentViewType = btn.dataset.view || 'multiplanar';
         if (!this.isViewerAvailable()) return;
-        this.viewerController.setViewType(btn.dataset.view);
+        this.viewerController.setViewType(this._currentViewType);
+        if (this.isCompareMode()) {
+          this.viewerController.setComparisonViewType(this._currentViewType);
+        }
       });
     });
 
@@ -341,6 +361,9 @@ export class SpinalCordToolboxApp {
         if (this.isViewerAvailable() && this.nv.volumes?.length) {
           this.nv.volumes[0].colormap = e.target.value;
           this.nv.updateGLVolume();
+        }
+        if (this.isCompareMode()) {
+          this.viewerController.setComparisonColormap(e.target.value);
         }
       });
     }
@@ -514,6 +537,99 @@ export class SpinalCordToolboxApp {
   }
 
   // ==================== Viewer Controls ====================
+
+  getInputSessions() {
+    return this.fileIOController?.getSessions?.() || [];
+  }
+
+  getActiveSession() {
+    return this.fileIOController?.getActiveSession?.() || null;
+  }
+
+  onInputSessionsChanged() {
+    const wasCompareMode = this.isCompareMode();
+    this.syncViewerModeControls();
+    if (wasCompareMode && !this.isCompareMode() && this.inputFile) {
+      void this.renderViewerVolumes();
+    }
+  }
+
+  canCompareSessions() {
+    return this.isViewerAvailable() && this.getInputSessions().length >= 2;
+  }
+
+  isCompareMode() {
+    return this._viewerMode === 'compare';
+  }
+
+  async setViewerMode(mode) {
+    const nextMode = mode === 'compare' ? 'compare' : 'single';
+    if (nextMode === 'compare' && !this.canCompareSessions()) {
+      this._viewerMode = 'single';
+      this.syncViewerModeControls();
+      this.updateOutput('Load at least two images before using Compare view');
+      return;
+    }
+
+    this._viewerMode = nextMode;
+    this.syncViewerModeControls();
+
+    if (this.isCompareMode()) {
+      await this.renderComparisonView();
+    } else {
+      this.viewerController.clearComparisonView(document.getElementById('comparisonGrid'));
+      await this.renderViewerVolumes();
+    }
+  }
+
+  syncViewerModeControls() {
+    if (this._viewerMode === 'compare' && !this.canCompareSessions()) {
+      this._viewerMode = 'single';
+    }
+
+    const singleButton = document.getElementById('singleViewButton');
+    const compareButton = document.getElementById('compareViewButton');
+    if (singleButton) singleButton.classList.toggle('active', !this.isCompareMode());
+    if (compareButton) {
+      compareButton.classList.toggle('active', this.isCompareMode());
+      compareButton.disabled = !this.canCompareSessions();
+      compareButton.title = this.canCompareSessions()
+        ? 'Compare loaded image sessions'
+        : 'Load at least two images to compare sessions';
+    }
+
+    const wrapper = document.querySelector('.viewer-canvas-wrapper');
+    if (wrapper) wrapper.classList.toggle('compare-mode', this.isCompareMode());
+
+    const comparisonGrid = document.getElementById('comparisonGrid');
+    if (comparisonGrid) comparisonGrid.hidden = !this.isCompareMode();
+  }
+
+  async renderComparisonView() {
+    if (!this.isCompareMode()) return false;
+    if (!this.canCompareSessions()) {
+      await this.setViewerMode('single');
+      return false;
+    }
+
+    const sessions = this.getInputSessions();
+    const activeSession = this.getActiveSession();
+    const colormapSelect = document.getElementById('colormapSelect');
+    const rendered = await this.viewerController.loadComparisonVolumes(sessions, {
+      container: document.getElementById('comparisonGrid'),
+      activeSessionId: activeSession?.id || this._activeSessionId,
+      viewType: this._currentViewType,
+      colormap: colormapSelect?.value || 'gray',
+      maxSessions: 4
+    });
+
+    if (rendered) {
+      const shown = Math.min(sessions.length, 4);
+      const suffix = sessions.length > shown ? ` (${shown} shown)` : '';
+      this.updateViewerInfo({ string: `Comparison: ${sessions.length} images${suffix}` });
+    }
+    return rendered;
+  }
 
   setupWindowControls() {
     const rangeMin = document.getElementById('rangeMin');
@@ -722,13 +838,18 @@ export class SpinalCordToolboxApp {
 
   // ==================== File Handling ====================
 
-  async onFileLoaded(file) {
+  async onFileLoaded(file, context = {}) {
     await this.resetForNewFile();
     this.inputFile = file;
+    this._activeSessionId = context?.session?.id || null;
     this.setStageVisible('input', true);
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
     if (inputVisibilityToggle) inputVisibilityToggle.checked = true;
-    if (this.isViewerAvailable()) {
+    this.syncViewerModeControls();
+
+    if (this.isCompareMode()) {
+      await this.renderComparisonView();
+    } else if (this.isViewerAvailable()) {
       await this.viewerController.loadBaseVolume(file, { stage: 'input' });
       this.applyDefaultBaseColormap();
       this.syncWindowControls();
@@ -741,6 +862,15 @@ export class SpinalCordToolboxApp {
     const inputData = await file.arrayBuffer();
     this.setStepRunning('load');
     await this.inferenceExecutor.loadVolume(inputData);
+  }
+
+  async onFilesCleared() {
+    this._viewerMode = 'single';
+    this._activeSessionId = null;
+    this.viewerController?.clearComparisonView?.(document.getElementById('comparisonGrid'));
+    await this.resetForNewFile();
+    if (this.isViewerAvailable()) this.viewerController.clearVolumes();
+    this.syncViewerModeControls();
   }
 
   async resetForNewFile() {
@@ -1123,6 +1253,7 @@ export class SpinalCordToolboxApp {
     document.querySelectorAll('.view-tab[data-view]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === 'multiplanar');
     });
+    this._currentViewType = 'multiplanar';
     if (this.isViewerAvailable()) this.viewerController.setViewType('multiplanar');
 
     const rangeMin = document.getElementById('rangeMin');
@@ -1178,6 +1309,7 @@ export class SpinalCordToolboxApp {
     } else {
       this.setViewerControlsEnabled(false);
     }
+    this.syncViewerModeControls();
   }
 
   applyDefaultBaseColormap() {
@@ -1563,6 +1695,10 @@ export class SpinalCordToolboxApp {
   }
 
   async viewStage(stage) {
+    if (this.isCompareMode() && stage !== 'input') {
+      await this.setViewerMode('single');
+    }
+
     const result = stage === 'input' ? null : this.inferenceExecutor.getResult(stage);
     if (result?.kind === 'metrics') {
       this.renderMetricsResult(stage);
@@ -1667,6 +1803,7 @@ export class SpinalCordToolboxApp {
   }
 
   async renderViewerVolumes() {
+    if (this.isCompareMode()) return this.renderComparisonView();
     if (!this.isViewerAvailable()) return this.renderFallbackPreview();
     this._renderViewerRequested = true;
     this._renderViewerPromise = this._renderViewerPromise.then(async () => {
@@ -1761,6 +1898,9 @@ export class SpinalCordToolboxApp {
   }
 
   async toggleInputVisibility(visible) {
+    if (this.isCompareMode()) {
+      await this.setViewerMode('single');
+    }
     this.setStageVisible('input', visible);
     if (!this.isViewerAvailable()) return;
     const inputVisibilityToggle = document.getElementById('inputVisibilityToggle');
@@ -1771,6 +1911,9 @@ export class SpinalCordToolboxApp {
   }
 
   async toggleStageVisibility(stage, visible) {
+    if (this.isCompareMode()) {
+      await this.setViewerMode('single');
+    }
     this.setStageVisible(stage, visible);
     const opacitySlider = document.getElementById('overlayOpacity');
     if (!this.isViewerAvailable()) {
@@ -1859,7 +2002,9 @@ export class SpinalCordToolboxApp {
     const opacityDisplay = document.getElementById('overlayOpacityValue');
     if (opacityDisplay) opacityDisplay.textContent = '50%';
 
-    if (this.inputFile && this.isViewerAvailable()) {
+    if (this.inputFile && this.isCompareMode()) {
+      void this.renderComparisonView();
+    } else if (this.inputFile && this.isViewerAvailable()) {
       this.viewerController.loadBaseVolume(this.inputFile, { stage: 'input' });
     }
 

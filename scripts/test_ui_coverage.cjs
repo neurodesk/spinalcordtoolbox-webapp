@@ -53,6 +53,8 @@ const UI_COVERAGE = Object.freeze([
   { id: 'clearResults', behavior: 'clears pipeline results', coveredBy: ['static-dom'] },
   { id: 'overlayOpacity', behavior: 'updates segmentation overlay opacity', coveredBy: ['viewer', 'batch', 'static-dom'] },
   { id: 'inputVisibilityToggle', behavior: 'toggles input volume visibility', coveredBy: ['viewer', 'static-dom'] },
+  { id: 'singleViewButton', behavior: 'returns the viewer to the active single-image session', coveredBy: ['viewer', 'static-dom'] },
+  { id: 'compareViewButton', behavior: 'shows loaded input sessions in side-by-side comparison canvases', coveredBy: ['viewer', 'static-dom'] },
   { id: 'interpolation', behavior: 'toggles viewer interpolation', coveredBy: ['static-dom'] },
   { id: 'colorbarToggle', behavior: 'toggles viewer colorbar', coveredBy: ['static-dom'] },
   { id: 'crosshairToggle', behavior: 'toggles viewer crosshair', coveredBy: ['static-dom'] },

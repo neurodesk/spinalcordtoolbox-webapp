@@ -11,18 +11,40 @@ class FakeClassList {
   constructor() { this.classes = new Set(); }
   add(c) { this.classes.add(c); }
   remove(c) { this.classes.delete(c); }
+  toggle(c, force) {
+    const shouldAdd = force === undefined ? !this.classes.has(c) : !!force;
+    if (shouldAdd) this.add(c);
+    else this.remove(c);
+    return shouldAdd;
+  }
   contains(c) { return this.classes.has(c); }
 }
 
 function makeStubElement() {
-  return {
+  const element = {
     classList: new FakeClassList(),
-    innerHTML: '',
+    className: '',
+    _innerHTML: '',
+    textContent: '',
     value: '',
+    type: '',
+    title: '',
     children: [],
+    listeners: {},
     appendChild(child) { this.children.push(child); },
+    addEventListener(event, handler) { this.listeners[event] = handler; },
+    click() { this.listeners.click?.(); },
+    setAttribute(name, value) { this[name] = value; },
     querySelector() { return { textContent: '' }; }
   };
+  Object.defineProperty(element, 'innerHTML', {
+    get() { return this._innerHTML; },
+    set(value) {
+      this._innerHTML = value;
+      if (value === '') this.children = [];
+    }
+  });
+  return element;
 }
 
 function installFakeDom() {
@@ -80,15 +102,27 @@ const { FileIOController } = await import('../web/js/controllers/FileIOControlle
   assert.equal(ctl.getActiveFile(), null);
 }
 
-// Test 3: NIfTI detection picks .nii.gz out of a mixed list
+// Test 3: NIfTI detection keeps all NIfTI files as comparable sessions and
+// activates the first new session for processing.
 {
-  const ctl = new FileIOController({});
+  const loaded = [];
+  const ctl = new FileIOController({
+    onFileLoaded: (file, context) => loaded.push([file.name, context.session.id])
+  });
   ctl.handleFiles([
     makeFile('readme.txt'),
-    makeFile('scan.nii.gz'),
+    makeFile('scan_a.nii.gz'),
+    makeFile('scan_b.nii'),
     makeFile('extra.dcm')
   ]);
-  assert.equal(ctl.getActiveFile().name, 'scan.nii.gz');
+  assert.equal(ctl.getSessions().length, 2);
+  assert.equal(ctl.getActiveFile().name, 'scan_a.nii.gz');
+  assert.deepEqual(loaded.map(item => item[0]), ['scan_a.nii.gz']);
+
+  const secondSession = ctl.getSessions()[1];
+  ctl.activateSession(secondSession.id);
+  assert.equal(ctl.getActiveFile().name, 'scan_b.nii');
+  assert.deepEqual(loaded.map(item => item[0]), ['scan_a.nii.gz', 'scan_b.nii']);
 }
 
 // Test 4: clearFiles resets state and DOM
@@ -99,6 +133,7 @@ const { FileIOController } = await import('../web/js/controllers/FileIOControlle
   ctl.clearFiles();
   assert.equal(ctl.hasValidData(), false);
   assert.equal(ctl.getActiveFile(), null);
+  assert.deepEqual(ctl.getSessions(), []);
   assert.equal(elements.get('inputDropZone').classList.contains('has-files'), false);
   assert.equal(elements.get('fileInput').value, '');
 }
@@ -135,6 +170,28 @@ const { FileIOController } = await import('../web/js/controllers/FileIOControlle
   ctl.handleDropItems([{ getAsFile: () => makeFile('img.dcm') }]);
   assert.equal(dropDicomCalled, true);
   assert.equal(ctl.hasValidData(), false);
+}
+
+// Test 8: removing the active session promotes a remaining session and removing
+// the last session clears state.
+{
+  const cleared = [];
+  const loaded = [];
+  const ctl = new FileIOController({
+    onFileLoaded: (file) => loaded.push(file.name),
+    onFilesCleared: () => cleared.push(true)
+  });
+  ctl.handleFiles([makeFile('first.nii.gz'), makeFile('second.nii.gz')]);
+  assert.equal(ctl.getActiveFile().name, 'first.nii.gz');
+
+  ctl.removeSession(ctl.getActiveSession().id);
+  assert.equal(ctl.getActiveFile().name, 'second.nii.gz');
+  assert.deepEqual(loaded, ['first.nii.gz', 'second.nii.gz']);
+
+  ctl.removeSession(ctl.getActiveSession().id);
+  assert.equal(ctl.getActiveFile(), null);
+  assert.equal(ctl.getSessions().length, 0);
+  assert.deepEqual(cleared, [true]);
 }
 
 console.log('FileIOController tests passed');

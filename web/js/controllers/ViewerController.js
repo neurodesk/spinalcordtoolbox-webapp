@@ -9,6 +9,8 @@ export class ViewerController {
   constructor(options) {
     this.nv = options.nv;
     this.updateOutput = options.updateOutput || (() => {});
+    this.viewerConfig = options.viewerConfig || {};
+    this.niivueFactory = options.niivueFactory || ((config) => new niivue.Niivue(config));
     this.currentBaseFile = null;
     this.currentOverlayFile = null;
     this.currentOverlayIndex = null;
@@ -18,6 +20,7 @@ export class ViewerController {
     this.stackFileIds = new WeakMap();
     this.nextStackFileId = 1;
     this.currentVolumeStackSignature = null;
+    this.compareViewers = new Map();
   }
 
   isAvailable() {
@@ -244,18 +247,117 @@ export class ViewerController {
     }
   }
 
-  setViewType(type) {
-    if (!this.isAvailable()) return;
+  applyViewTypeToNv(nv, type) {
+    if (!nv) return;
     const typeMap = {
-      multiplanar: this.nv.sliceTypeMultiplanar,
-      axial: this.nv.sliceTypeAxial,
-      coronal: this.nv.sliceTypeCoronal,
-      sagittal: this.nv.sliceTypeSagittal,
-      render: this.nv.sliceTypeRender
+      multiplanar: nv.sliceTypeMultiplanar,
+      axial: nv.sliceTypeAxial,
+      coronal: nv.sliceTypeCoronal,
+      sagittal: nv.sliceTypeSagittal,
+      render: nv.sliceTypeRender
     };
     if (typeMap[type] !== undefined) {
-      this.nv.setSliceType(typeMap[type]);
+      nv.setSliceType(typeMap[type]);
     }
+  }
+
+  setViewType(type) {
+    if (!this.isAvailable()) return;
+    this.applyViewTypeToNv(this.nv, type);
+  }
+
+  async loadComparisonVolumes(sessions, options = {}) {
+    if (!this.isAvailable()) return false;
+    const container = options.container || (options.containerId ? document.getElementById(options.containerId) : null);
+    if (!container) return false;
+
+    this.clearComparisonView(container);
+
+    const visibleSessions = sessions
+      .filter(session => session?.file)
+      .slice(0, options.maxSessions || 4);
+    container.dataset.count = String(visibleSessions.length);
+    if (!visibleSessions.length) return false;
+
+    const viewType = options.viewType || 'multiplanar';
+    const colormap = options.colormap || 'gray';
+    const activeSessionId = options.activeSessionId || null;
+
+    for (const session of visibleSessions) {
+      const panel = document.createElement('div');
+      panel.className = 'comparison-panel';
+      if (session.id === activeSessionId) panel.classList.add('active');
+
+      const label = document.createElement('div');
+      label.className = 'comparison-label';
+      label.textContent = session.name || session.file.name;
+      panel.appendChild(label);
+
+      const canvas = document.createElement('canvas');
+      canvas.id = `comparisonCanvas-${session.id}`;
+      panel.appendChild(canvas);
+      container.appendChild(panel);
+
+      const compareNv = this.niivueFactory({ ...this.viewerConfig });
+      await compareNv.attachTo(canvas.id);
+      if (!compareNv.gl) {
+        throw new Error(`WebGL2 context unavailable for ${session.name || session.file.name}.`);
+      }
+      compareNv.setMultiplanarPadPixels?.(5);
+      this.applyViewTypeToNv(compareNv, viewType);
+      compareNv.setInterpolation?.(true);
+
+      const url = this.getObjectUrl(session.file);
+      await compareNv.loadVolumes([{ url, name: session.file.name }]);
+      const volume = compareNv.volumes?.[0];
+      if (volume) {
+        volume.colormap = colormap;
+        compareNv.updateGLVolume?.();
+      }
+      compareNv.drawScene?.();
+      this.compareViewers.set(session.id, { nv: compareNv, file: session.file });
+    }
+
+    return true;
+  }
+
+  clearComparisonView(container = null) {
+    for (const { nv } of this.compareViewers.values()) {
+      try {
+        nv.volumes = [];
+        nv.updateGLVolume?.();
+        nv.drawScene?.();
+        nv.gl?.getExtension?.('WEBGL_lose_context')?.loseContext?.();
+      } catch (error) {
+        console.warn('Could not clear comparison viewer:', error);
+      }
+    }
+    this.compareViewers.clear();
+    if (container) {
+      container.innerHTML = '';
+      container.dataset.count = '0';
+    }
+  }
+
+  setComparisonViewType(type) {
+    for (const { nv } of this.compareViewers.values()) {
+      this.applyViewTypeToNv(nv, type);
+      nv.drawScene?.();
+    }
+  }
+
+  setComparisonColormap(colormap) {
+    for (const { nv } of this.compareViewers.values()) {
+      const volume = nv.volumes?.[0];
+      if (!volume) continue;
+      volume.colormap = colormap;
+      nv.updateGLVolume?.();
+      nv.drawScene?.();
+    }
+  }
+
+  getComparisonViewerCount() {
+    return this.compareViewers.size;
   }
 
   setBaseOpacity(value) {

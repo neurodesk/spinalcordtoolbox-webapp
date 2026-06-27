@@ -54,6 +54,68 @@ function createFakeNiivue() {
   };
 }
 
+function createFakeComparisonNiivue(created) {
+  const nv = createFakeNiivue();
+  nv.volumes = [];
+  nv.attachedCanvasIds = [];
+  nv.lostContext = false;
+  nv.sliceTypeMultiplanar = 'multiplanar';
+  nv.sliceTypeAxial = 'axial';
+  nv.sliceTypeCoronal = 'coronal';
+  nv.sliceTypeSagittal = 'sagittal';
+  nv.sliceTypeRender = 'render';
+  nv.setSliceType = (type) => {
+    nv.currentSliceType = type;
+  };
+  nv.setMultiplanarPadPixels = (pixels) => {
+    nv.multiplanarPadPixels = pixels;
+  };
+  nv.setInterpolation = (enabled) => {
+    nv.interpolation = enabled;
+  };
+  nv.attachTo = async (canvasId) => {
+    nv.attachedCanvasIds.push(canvasId);
+    nv.gl = {
+      getExtension: () => ({
+        loseContext: () => {
+          nv.lostContext = true;
+        }
+      })
+    };
+  };
+  created.push(nv);
+  return nv;
+}
+
+function makeFakeDomElement(tagName = 'div') {
+  const element = {
+    tagName,
+    id: '',
+    className: '',
+    textContent: '',
+    dataset: {},
+    children: [],
+    classList: {
+      classes: new Set(),
+      add(className) { this.classes.add(className); },
+      remove(className) { this.classes.delete(className); },
+      contains(className) { return this.classes.has(className); }
+    },
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    }
+  };
+  Object.defineProperty(element, 'innerHTML', {
+    get() { return this._innerHTML || ''; },
+    set(value) {
+      this._innerHTML = value;
+      if (value === '') this.children = [];
+    }
+  });
+  return element;
+}
+
 function makeFile(name) {
   return new File([new Uint8Array([1, 2, 3])], name, { type: 'application/octet-stream' });
 }
@@ -263,6 +325,68 @@ function makeFile(name) {
   assert.equal(nv.addVolumeFromUrlCalls[0].colormap, 'sct-spinalcord');
   assert.equal(nv.addVolumeFromUrlCalls[1].colormap, 'sct-lesion');
   assert.equal(nv.addVolumeFromUrlCalls[2].colormap, 'sct-vertebrae');
+}
+
+{
+  const originalDocument = globalThis.document;
+  const container = makeFakeDomElement('div');
+  globalThis.document = {
+    createElement: (tagName) => makeFakeDomElement(tagName)
+  };
+
+  try {
+    const created = [];
+    const viewer = new ViewerController({
+      nv: createFakeNiivue(),
+      viewerConfig: { dragAndDropEnabled: false },
+      niivueFactory: () => createFakeComparisonNiivue(created)
+    });
+    const first = makeFile('session_one.nii.gz');
+    const second = makeFile('session_two.nii.gz');
+
+    const rendered = await viewer.loadComparisonVolumes([
+      { id: 'session-1', name: first.name, file: first },
+      { id: 'session-2', name: second.name, file: second }
+    ], {
+      container,
+      activeSessionId: 'session-2',
+      viewType: 'axial',
+      colormap: 'hot',
+      maxSessions: 4
+    });
+
+    assert.equal(rendered, true);
+    assert.equal(container.dataset.count, '2');
+    assert.equal(container.children.length, 2);
+    assert.equal(container.children[0].children[0].textContent, 'session_one.nii.gz');
+    assert.equal(container.children[1].classList.contains('active'), true);
+    assert.equal(created.length, 2);
+    assert.deepEqual(created[0].attachedCanvasIds, ['comparisonCanvas-session-1']);
+    assert.deepEqual(created[1].attachedCanvasIds, ['comparisonCanvas-session-2']);
+    assert.equal(created[0].loadVolumesCalls.length, 1);
+    assert.equal(created[0].loadVolumesCalls[0][0].name, 'session_one.nii.gz');
+    assert.equal(created[1].loadVolumesCalls[0][0].name, 'session_two.nii.gz');
+    assert.equal(created[0].volumes[0].colormap, 'hot');
+    assert.equal(created[1].currentSliceType, 'axial');
+    assert.equal(viewer.getComparisonViewerCount(), 2);
+
+    viewer.setComparisonColormap('viridis');
+    assert.equal(created[0].volumes[0].colormap, 'viridis');
+    assert.equal(created[1].volumes[0].colormap, 'viridis');
+
+    viewer.setComparisonViewType('sagittal');
+    assert.equal(created[0].currentSliceType, 'sagittal');
+    assert.equal(created[1].currentSliceType, 'sagittal');
+
+    viewer.clearComparisonView(container);
+    assert.equal(viewer.getComparisonViewerCount(), 0);
+    assert.equal(container.children.length, 0);
+    assert.equal(container.dataset.count, '0');
+    assert.equal(created[0].lostContext, true);
+    assert.equal(created[1].lostContext, true);
+  } finally {
+    globalThis.document = originalDocument;
+  }
 }
 
 console.log('ViewerController tests passed');

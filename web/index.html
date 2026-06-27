@@ -256,6 +256,11 @@
   <main class="app-main">
     <!-- Viewer toolbar -->
     <div class="viewer-toolbar">
+      <div class="viewer-mode-tabs" aria-label="Viewer mode">
+        <button class="view-tab active" id="singleViewButton" type="button" data-viewer-mode="single">Single</button>
+        <button class="view-tab" id="compareViewButton" type="button" data-viewer-mode="compare" disabled>Compare</button>
+      </div>
+
       <div class="view-tabs">
         <button class="view-tab active" data-view="multiplanar">3-Plane</button>
         <button class="view-tab" data-view="axial">Axial</button>
@@ -334,6 +339,7 @@
     <div class="viewer-canvas-wrapper">
       <canvas id="gl1"></canvas>
       <canvas id="fallbackCanvas2d" class="fallback-canvas"></canvas>
+      <div class="comparison-grid" id="comparisonGrid" data-count="0" aria-label="Loaded image comparison grid"></div>
       <div class="viewer-unavailable-message" id="viewerUnavailableMessage" hidden>
         Image preview unavailable: WebGL2 could not initialize. You can still load images, run analysis, and download results. To restore the interactive 3D viewer, enable hardware acceleration in your browser (Chrome: Settings › System; details at chrome://gpu), then reload.
       </div>
