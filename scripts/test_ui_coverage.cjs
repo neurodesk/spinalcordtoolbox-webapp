@@ -126,15 +126,17 @@ assert.ok(appJs.includes("bindModalButton('startPrivacyInlineButton', this.priva
 assert.ok(appJs.includes("bindModalButton('startCitationsButton', this.citationsModal)"), 'start page Citations button is wired');
 assert.ok(indexHtml.includes('id="moreAppsLink"'), 'main app header More Apps link exists');
 assert.ok(indexHtml.includes('https://neurodesk.org/getting-started/hosted/webapps/'), 'More Apps links target the Neurodesk hosted web apps index');
-assert.ok(indexHtml.includes('Cloudflare Web Analytics'), 'Cloudflare analytics marker exists');
+assert.ok(indexHtml.includes('Google Analytics (same property and Do Not Track behavior as neurodesk.org)'), 'Google Analytics marker exists');
 assert.ok(
-  indexHtml.includes("<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"dc30b44a05064167a50cc46f90664682\"}'></script>"),
-  'Cloudflare analytics script uses the expected token'
+  indexHtml.includes('https://www.googletagmanager.com/gtag/js?id=G-4Z9774J59Y') &&
+    indexHtml.includes("gtag('config', 'G-4Z9774J59Y')"),
+  'Google Analytics uses the Neurodesk measurement ID'
 );
 assert.ok(
-  indexHtml.includes('Cloudflare Web Analytics collects aggregate page usage and performance metrics'),
-  'privacy copy discloses Cloudflare analytics scope'
+  indexHtml.includes("Google Analytics collects aggregate page usage and performance metrics when your browser's Do Not Track setting is not enabled"),
+  'privacy copy discloses Google Analytics scope and Do Not Track behavior'
 );
+assert.ok(indexHtml.includes("doNotTrack = dnt === '1' || dnt === 'yes'"), 'Google Analytics respects Do Not Track');
 assert.ok(
   indexHtml.includes('SCT: Spinal Cord Toolbox, an open-source software for processing spinal cord MRI data'),
   'Citations modal includes the primary SCT NeuroImage citation'

@@ -430,7 +430,7 @@
       <p>SpinalCordToolbox uses ONNX Runtime Web to run browser-compatible deep learning models directly in the browser via WebAssembly. Your NIfTI or DICOM files are read into browser memory, processed locally, and results are displayed without patient-data network transfer.</p>
 
       <h4>Third-party services</h4>
-      <p>Cloudflare Web Analytics collects aggregate page usage and performance metrics. Those statistics must not include patient image data, DICOM metadata, filenames, voxel values, masks, segmentations, screenshots, free-text patient-derived logs, or downloaded outputs.</p>
+      <p>Google Analytics collects aggregate page usage and performance metrics when your browser's Do Not Track setting is not enabled. Those statistics must not include patient image data, DICOM metadata, filenames, voxel values, masks, segmentations, screenshots, free-text patient-derived logs, or downloaded outputs.</p>
     </div>
   </div>
 </div>
@@ -511,7 +511,19 @@ function toggleSection(section) {
 
 <!-- Main app -->
 <script type="module" src="js/spinalcordtoolbox-app.js"></script>
-<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "dc30b44a05064167a50cc46f90664682"}'></script><!-- End Cloudflare Web Analytics -->
+<!-- Google Analytics (same property and Do Not Track behavior as neurodesk.org) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4Z9774J59Y"></script>
+<script>
+  var doNotTrack = false;
+  var dnt = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+  doNotTrack = dnt === '1' || dnt === 'yes';
+  if (!doNotTrack) {
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-4Z9774J59Y');
+  }
+</script>
 
 </body>
 </html>
